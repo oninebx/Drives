@@ -6,51 +6,49 @@ import _traverse from '@babel/traverse';
 
 const traverse = _traverse.default || _traverse;
 
-// 配置项
-const CONFIG = {
-  // 组件所在的根目录
-  componentsDir: 'src/components',
-  // 项目入口文件或必然被使用的目录（如页面、路由、App入口等）
-  entryPatterns: ['src/pages/**/*.{ts,tsx,js,jsx}', 'src/App.{ts,tsx,js,jsx}', 'src/main.{ts,tsx,js,jsx}'],
-  // 支持的文件后缀
-  extensions: ['.tsx', '.ts', '.jsx', '.js']
-};
+// 1. 获取传入的项目目录路径
+const inputPath = process.argv[2] || '.';
+const projectRoot = path.resolve(inputPath);
 
-const projectRoot = process.cwd();
+if (!fs.existsSync(projectRoot)) {
+  console.error(`❌ 错误: 找不到指定路径 -> ${projectRoot}`);
+  process.exit(1);
+}
 
-// 辅助函数：解析真实文件路径（兼容直接导入与 index.ts/index.tsx 重导出）
-function resolveFilePath(baseDir, importPath) {
-  const absolutePath = path.resolve(baseDir, importPath);
+const EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
 
-  // 1. 精确文件匹配
-  if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile()) {
-    return absolutePath;
+// 路径解析工具：兼容直接文件与目录 index.ts/index.tsx 导出
+function resolvePath(baseDir, importPath) {
+  if (!importPath || !importPath.startsWith('.')) return null; // 排除 node_modules
+  const absPath = path.resolve(baseDir, importPath);
+
+  if (fs.existsSync(absPath) && fs.statSync(absPath).isFile()) return absPath;
+
+  for (const ext of EXTENSIONS) {
+    if (fs.existsSync(absPath + ext)) return absPath + ext;
   }
 
-  // 2. 尝试追加后缀匹配
-  for (const ext of CONFIG.extensions) {
-    if (fs.existsSync(absolutePath + ext)) {
-      return absolutePath + ext;
+  if (fs.existsSync(absPath) && fs.statSync(absPath).isDirectory()) {
+    for (const ext of EXTENSIONS) {
+      const indexPath = path.join(absPath, `index${ext}`);
+      if (fs.existsSync(indexPath)) return indexPath;
     }
   }
-
-  // 3. 尝试目录下的 index 文件 (兼容 index.ts 导出)
-  if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isDirectory()) {
-    for (const ext of CONFIG.extensions) {
-      const indexPath = path.join(absolutePath, `index${ext}`);
-      if (fs.existsSync(indexPath)) {
-        return indexPath;
-      }
-    }
-  }
-
   return null;
 }
 
-// 解析单个文件的依赖（提取 import 和 export ... from）
-function parseFileDependencies(filePath) {
-  const dependencies = new Set();
+// 2. AST 文件分析：提取每个文件的 导出映射 (exports) 和 导入依赖 (imports)
+const fileAnalysisMap = new Map();
+
+function analyzeFile(filePath) {
+  if (fileAnalysisMap.has(filePath)) return fileAnalysisMap.get(filePath);
+
   const code = fs.readFileSync(filePath, 'utf-8');
+  const fileDir = path.dirname(filePath);
+
+  const exports = new Map(); // exportName -> { sourceFile, originalSymbol }
+  const wildcardReExports = new Set(); // export * from '...'
+  const imports = []; // [{ targetFile, symbolName }]
 
   try {
     const ast = parser.parse(code, {
@@ -59,121 +57,240 @@ function parseFileDependencies(filePath) {
     });
 
     traverse(ast, {
-      // 处理 import 语句 (如 import { Button } from './Button')
+      // 处理 import 声明
       ImportDeclaration({ node }) {
-        const resolved = resolveFilePath(path.dirname(filePath), node.source.value);
-        if (resolved) dependencies.add(resolved);
+        const resolved = resolvePath(fileDir, node.source.value);
+        if (!resolved) return;
+
+        node.specifiers.forEach(spec => {
+          if (spec.type === 'ImportDefaultSpecifier') {
+            imports.push({ targetFile: resolved, symbolName: 'default' });
+          } else if (spec.type === 'ImportSpecifier') {
+            const importedName = spec.imported.type === 'Identifier' ? spec.imported.name : spec.imported.value;
+            imports.push({ targetFile: resolved, symbolName: importedName });
+          } else if (spec.type === 'ImportNamespaceSpecifier') {
+            imports.push({ targetFile: resolved, symbolName: '*' });
+          }
+        });
       },
-      // 处理 re-export 语句 (如 export * from './Button' 或 export { Button } from './Button')
-      ExportAllDeclaration({ node }) {
-        if (node.source) {
-          const resolved = resolveFilePath(path.dirname(filePath), node.source.value);
-          if (resolved) dependencies.add(resolved);
+
+      // 处理 export { x } 或 export { x } from './y'
+      ExportNamedDeclaration({ node }) {
+        const resolvedSource = node.source ? resolvePath(fileDir, node.source.value) : null;
+
+        if (node.specifiers) {
+          node.specifiers.forEach(spec => {
+            if (spec.type === 'ExportSpecifier') {
+              const exportedName = spec.exported.type === 'Identifier' ? spec.exported.name : spec.exported.value;
+              const localName = spec.local.name;
+
+              if (resolvedSource) {
+                // re-export: export { Button } from './Button'
+                exports.set(exportedName, { sourceFile: resolvedSource, originalSymbol: localName });
+              } else {
+                // 本地导出: export { Button }
+                exports.set(exportedName, { sourceFile: filePath, originalSymbol: localName });
+              }
+            }
+          });
+        }
+
+        // 处理 export const Button = ... / export function Component() {}
+        if (node.declaration) {
+          const decl = node.declaration;
+          if (decl.id && decl.id.name) {
+            exports.set(decl.id.name, { sourceFile: filePath, originalSymbol: decl.id.name });
+          } else if (decl.declarations) {
+            decl.declarations.forEach(d => {
+              if (d.id && d.id.name) {
+                exports.set(d.id.name, { sourceFile: filePath, originalSymbol: d.id.name });
+              }
+            });
+          }
         }
       },
-      ExportNamedDeclaration({ node }) {
-        if (node.source) {
-          const resolved = resolveFilePath(path.dirname(filePath), node.source.value);
-          if (resolved) dependencies.add(resolved);
+
+      // 处理 export default
+      ExportDefaultDeclaration() {
+        exports.set('default', { sourceFile: filePath, originalSymbol: 'default' });
+      },
+
+      // 处理 export * from './Button' (Barrel Export)
+      ExportAllDeclaration({ node }) {
+        const resolved = resolvePath(fileDir, node.source.value);
+        if (resolved) {
+          if (node.exported) {
+            // export * as Utils from './utils'
+            const exportedName = node.exported.type === 'Identifier' ? node.exported.name : node.exported.value;
+            exports.set(exportedName, { sourceFile: resolved, originalSymbol: '*' });
+          } else {
+            // export * from './Button'
+            wildcardReExports.add(resolved);
+          }
+        }
+      },
+
+      // 兼容动态 import() 语法
+      CallExpression({ node }) {
+        if (node.callee.type === 'Import' && node.arguments[0]?.value) {
+          const resolved = resolvePath(fileDir, node.arguments[0].value);
+          if (resolved) imports.push({ targetFile: resolved, symbolName: '*' });
         }
       }
     });
   } catch (err) {
-    console.warn(`[Warning] 解析文件 AST 失败: ${filePath}`);
+    // 遇到无法解析的非标准 TS 语法时妥善跳过
   }
 
-  return Array.from(dependencies);
+  const result = { filePath, exports, wildcardReExports, imports };
+  fileAnalysisMap.set(filePath, result);
+  return result;
 }
 
-// 主运行逻辑
-function findUnusedComponents() {
-  // 1. 搜集所有组件文件
-  const componentFiles = globSync(`${CONFIG.componentsDir}/**/*.{ts,tsx,js,jsx}`, {
-    ignore: ['**/*.d.ts', '**/*.test.*', '**/*.spec.*']
-  }).map(f => path.resolve(f));
+// 3. 符号级追踪引擎：递归穿透 index.ts 找到真实的定义文件 (.tsx)
+const usedFiles = new Set();
+const visitedSymbols = new Set();
 
-  // 2. 搜集所有入口文件
-  const entryFiles = CONFIG.entryPatterns
-    .flatMap(pattern => globSync(pattern))
-    .map(f => path.resolve(f));
+function traceSymbol(filePath, symbolName) {
+  const symbolKey = `${filePath}::${symbolName}`;
+  if (visitedSymbols.has(symbolKey)) return;
+  visitedSymbols.add(symbolKey);
 
-  // 3. 构建全项目依赖拓扑图 Graph: filePath -> Set(importedFilePaths)
-  const graph = new Map();
-  const allProjectFiles = globSync('src/**/*.{ts,tsx,js,jsx}', { ignore: ['**/*.d.ts'] }).map(f => path.resolve(f));
+  usedFiles.add(filePath);
 
-  allProjectFiles.forEach(file => {
-    graph.set(file, parseFileDependencies(file));
-  });
+  const fileData = analyzeFile(filePath);
+  if (!fileData) return;
 
-  // 4. 从入口点出发，深度优先遍历 (DFS) 标记所有【已被使用】的文件
-  const usedFiles = new Set();
-
-  function markReachable(filePath) {
-    if (usedFiles.has(filePath)) return;
-    usedFiles.add(filePath);
-
-    const deps = graph.get(filePath) || [];
-    deps.forEach(dep => markReachable(dep));
-  }
-
-  entryFiles.forEach(entry => markReachable(entry));
-
-  // 5. 找出未被使用的组件
-  const unusedComponents = componentFiles.filter(file => !usedFiles.has(file));
-
-  // 6. 归类整理：主组件 vs 子组件
-  const componentSet = new Set(componentFiles);
-  const mainUnused = [];
-  const unusedSubComponentsMap = new Map(); // 父组件 -> 未被调用的子组件列表
-
-  unusedComponents.forEach(file => {
-    const relativePath = path.relative(projectRoot, file);
-    // 检查该未调用的组件，是否是被其他【未使用组件】引用的“子组件”
-    let isSubComponent = false;
-
-    for (const parentFile of unusedComponents) {
-      if (parentFile === file) continue;
-      const parentDeps = graph.get(parentFile) || [];
-      if (parentDeps.includes(file)) {
-        // 说明 file 是 parentFile 的子组件/内部依赖
-        isSubComponent = true;
-        if (!unusedSubComponentsMap.has(parentFile)) {
-          unusedSubComponentsMap.set(parentFile, []);
-        }
-        unusedSubComponentsMap.get(parentFile).push(relativePath);
-        break;
-      }
-    }
-
-    if (!isSubComponent) {
-      mainUnused.push(file);
-    }
-  });
-
-  // 7. 打印统计结果
-  console.log('\n============== 📊 未使用组件统计报告 ==============\n');
-
-  if (mainUnused.length === 0) {
-    console.log('🎉 恭喜！项目中未发现闲置组件。');
+  // 如果是命名空间导入 (import * as X)，追踪目标文件的所有导出与依赖
+  if (symbolName === '*') {
+    fileData.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
+    fileData.exports.forEach(exp => {
+      if (exp.sourceFile) traceSymbol(exp.sourceFile, exp.originalSymbol);
+    });
+    fileData.wildcardReExports.forEach(reExportFile => traceSymbol(reExportFile, '*'));
     return;
   }
 
-  console.log(`共发现 ${mainUnused.length} 个根级未使用的组件:\n`);
+  // 情况 A: 在当前文件中找到直接或具名重导出
+  if (fileData.exports.has(symbolName)) {
+    const exp = fileData.exports.get(symbolName);
+    if (exp.sourceFile === filePath) {
+      // 在本地文件中定义：进一步追踪该文件内部引用的其他符号
+      fileData.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
+    } else {
+      // 经过 index.ts 重导出：继续向下追踪源文件
+      traceSymbol(exp.sourceFile, exp.originalSymbol);
+    }
+    return;
+  }
 
-  mainUnused.forEach((file, index) => {
+  // 情况 B: 当前文件未直接找到，但在 export * from '...' 中
+  for (const reExportFile of fileData.wildcardReExports) {
+    traceSymbol(reExportFile, symbolName);
+  }
+}
+
+// 4. 主流程逻辑
+function run() {
+  console.log(`\n🔍 正在扫描项目: ${projectRoot} ...\n`);
+
+  // 搜集项目内所有的 TS/TSX 文件
+  const allFiles = globSync('**/*.{ts,tsx,js,jsx}', {
+    cwd: projectRoot,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*']
+  }).map(f => path.resolve(projectRoot, f));
+
+  // 预解析所有文件
+  allFiles.forEach(analyzeFile);
+
+  // 自动识别项目入口点文件 (Pages, Routes, App, Main, 或非 components 目录下的逻辑文件)
+  const entryFiles = allFiles.filter(f => {
+    const rel = path.relative(projectRoot, f).replace(/\\/g, '/');
+    return (
+      rel.startsWith('pages/') ||
+      rel.startsWith('app/') ||
+      rel.startsWith('routes/') ||
+      /^(src\/)?(App|main|index)\.(tsx|ts|jsx|js)$/i.test(rel) ||
+      (!rel.includes('components/') && !rel.endsWith('.tsx')) // 标记非组件的业务/逻辑文件为起点
+    );
+  });
+
+  // 从所有入口点开始向下递归追踪依赖符号
+  entryFiles.forEach(entry => {
+    usedFiles.add(entry);
+    const data = analyzeFile(entry);
+    if (data) {
+      data.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
+    }
+  });
+
+  // 筛选出所有 .tsx 组件文件
+  const allTsxComponents = allFiles.filter(f => f.endsWith('.tsx'));
+
+  // 找出未使用的 .tsx 组件
+  const unusedTsxFiles = allTsxComponents.filter(f => !usedFiles.has(f));
+
+  // 5. 分析主未使用组件与“级联未引用的子组件”
+  const unusedSet = new Set(unusedTsxFiles);
+  const subComponentMap = new Map(); // ParentPath -> Array of ChildPaths
+  const mainUnusedComponents = [];
+
+  unusedTsxFiles.forEach(file => {
+    const fileData = analyzeFile(file);
+    let isChildOfOtherUnused = false;
+
+    // 检查该未使用组件，是否只被其他“同样未使用的组件”所引用
+    for (const otherUnused of unusedTsxFiles) {
+      if (otherUnused === file) continue;
+      const otherData = analyzeFile(otherUnused);
+      if (otherData) {
+        const referencesFile = otherData.imports.some(imp => {
+          // 检查直接引用或通过 index 引用
+          const exp = analyzeFile(imp.targetFile)?.exports.get(imp.symbolName);
+          return imp.targetFile === file || exp?.sourceFile === file;
+        });
+
+        if (referencesFile) {
+          isChildOfOtherUnused = true;
+          if (!subComponentMap.has(otherUnused)) {
+            subComponentMap.set(otherUnused, []);
+          }
+          subComponentMap.get(otherUnused).push(file);
+          break;
+        }
+      }
+    }
+
+    if (!isChildOfOtherUnused) {
+      mainUnusedComponents.push(file);
+    }
+  });
+
+  // 6. 输出报告
+  console.log('================ 📊 TSX 未使用组件分析报告 ================\n');
+
+  if (mainUnusedComponents.length === 0) {
+    console.log('🎉 太棒了！项目中没有发现未使用的 .tsx 组件。');
+    return;
+  }
+
+  console.log(`发现 ${mainUnusedComponents.length} 个独立未使用的组件:\n`);
+
+  mainUnusedComponents.forEach((file, index) => {
     const relativePath = path.relative(projectRoot, file);
-    console.log(`${index + 1}. ❌ [未使用] ${relativePath}`);
+    console.log(`${index + 1}. ❌ [未使用组件] ${relativePath}`);
 
-    // 检查当前主未使用组件下，包含哪些同样未被外部使用的子组件
-    const subs = unusedSubComponentsMap.get(file);
-    if (subs && subs.length > 0) {
-      subs.forEach(sub => {
-        console.log(`   └─ 🔗 [级联未被外部引用子组件] ${sub}`);
+    // 打印其带出的子组件
+    const children = subComponentMap.get(file);
+    if (children && children.length > 0) {
+      children.forEach(child => {
+        const childRel = path.relative(projectRoot, child);
+        console.log(`   └─ 🔗 [随之失效的子组件] ${childRel}`);
       });
     }
   });
 
-  console.log('\n====================================================\n');
+  console.log('\n===========================================================\n');
 }
 
-findUnusedComponents();
+run();
