@@ -1,296 +1,359 @@
-import fs from 'fs';
-import path from 'path';
-import { globSync } from 'glob';
-import parser from '@babel/parser';
-import _traverse from '@babel/traverse';
+const fs = require('fs');
+const path = require('path');
 
-const traverse = _traverse.default || _traverse;
-
-// 1. 获取传入的项目目录路径
-const inputPath = process.argv[2] || '.';
-const projectRoot = path.resolve(inputPath);
-
-if (!fs.existsSync(projectRoot)) {
-  console.error(`❌ 错误: 找不到指定路径 -> ${projectRoot}`);
-  process.exit(1);
-}
-
-const EXTENSIONS = ['.tsx', '.ts', '.jsx', '.js'];
-
-// 路径解析工具：兼容直接文件与目录 index.ts/index.tsx 导出
-function resolvePath(baseDir, importPath) {
-  if (!importPath || !importPath.startsWith('.')) return null; // 排除 node_modules
-  const absPath = path.resolve(baseDir, importPath);
-
-  if (fs.existsSync(absPath) && fs.statSync(absPath).isFile()) return absPath;
-
-  for (const ext of EXTENSIONS) {
-    if (fs.existsSync(absPath + ext)) return absPath + ext;
+class DependencyAnalyzer {
+  constructor(projectPath, featurePath) {
+    this.projectPath = path.resolve(projectPath);
+    this.featurePath = path.resolve(featurePath);
+    this.fileMap = new Map(); // 文件路径 -> 文件内容
+    this.dependencyGraph = new Map(); // 文件路径 -> 依赖的文件路径数组
+    this.reverseDependencyGraph = new Map(); // 文件路径 -> 被哪些文件引用
+    this.componentExports = new Map(); // 文件路径 -> 导出的组件名
+    this.entryPoints = new Set(); // 入口文件
+    this.unusedComponents = new Set();
+    this.visited = new Set();
   }
 
-  if (fs.existsSync(absPath) && fs.statSync(absPath).isDirectory()) {
-    for (const ext of EXTENSIONS) {
-      const indexPath = path.join(absPath, `index${ext}`);
-      if (fs.existsSync(indexPath)) return indexPath;
+  // 读取所有文件
+  readAllFiles(dirPath, fileList = []) {
+    const files = fs.readdirSync(dirPath);
+    
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const stat = fs.statSync(filePath);
+      
+      if (stat.isDirectory()) {
+        // 跳过node_modules等目录
+        if (file === 'node_modules' || file === '.git' || file === 'dist' || file === 'build') {
+          continue;
+        }
+        this.readAllFiles(filePath, fileList);
+      } else if (this.isCodeFile(file)) {
+        fileList.push(filePath);
+        this.fileMap.set(filePath, fs.readFileSync(filePath, 'utf-8'));
+      }
     }
+    
+    return fileList;
   }
-  return null;
-}
 
-// 2. AST 文件分析：提取每个文件的 导出映射 (exports) 和 导入依赖 (imports)
-const fileAnalysisMap = new Map();
+  // 判断是否为代码文件
+  isCodeFile(filename) {
+    const extensions = ['.js', '.jsx', '.ts', '.tsx', '.vue', '.mjs', '.cjs'];
+    return extensions.some(ext => filename.endsWith(ext));
+  }
 
-function analyzeFile(filePath) {
-  if (fileAnalysisMap.has(filePath)) return fileAnalysisMap.get(filePath);
+  // 解析文件依赖
+  parseDependencies(filePath, content) {
+    const dependencies = [];
+    const importRegex = /import\s+.*?from\s+['"](.*?)['"]/g;
+    const requireRegex = /require\s*\(['"](.*?)['"]\)/g;
+    const dynamicImportRegex = /import\s*\(['"](.*?)['"]\)/g;
+    
+    let match;
+    
+    // 解析import语句
+    while ((match = importRegex.exec(content)) !== null) {
+      const importPath = match[1];
+      const resolvedPath = this.resolveImportPath(filePath, importPath);
+      if (resolvedPath) {
+        dependencies.push(resolvedPath);
+      }
+    }
+    
+    // 解析require语句
+    while ((match = requireRegex.exec(content)) !== null) {
+      const requirePath = match[1];
+      const resolvedPath = this.resolveImportPath(filePath, requirePath);
+      if (resolvedPath) {
+        dependencies.push(resolvedPath);
+      }
+    }
+    
+    // 解析动态import
+    while ((match = dynamicImportRegex.exec(content)) !== null) {
+      const importPath = match[1];
+      const resolvedPath = this.resolveImportPath(filePath, importPath);
+      if (resolvedPath) {
+        dependencies.push(resolvedPath);
+      }
+    }
+    
+    return dependencies;
+  }
 
-  const code = fs.readFileSync(filePath, 'utf-8');
-  const fileDir = path.dirname(filePath);
-
-  const exports = new Map(); // exportName -> { sourceFile, originalSymbol }
-  const wildcardReExports = new Set(); // export * from '...'
-  const imports = []; // [{ targetFile, symbolName }]
-
-  try {
-    const ast = parser.parse(code, {
-      sourceType: 'module',
-      plugins: ['jsx', 'typescript', 'decorators-legacy']
-    });
-
-    traverse(ast, {
-      // 处理 import 声明
-      ImportDeclaration({ node }) {
-        const resolved = resolvePath(fileDir, node.source.value);
-        if (!resolved) return;
-
-        node.specifiers.forEach(spec => {
-          if (spec.type === 'ImportDefaultSpecifier') {
-            imports.push({ targetFile: resolved, symbolName: 'default' });
-          } else if (spec.type === 'ImportSpecifier') {
-            const importedName = spec.imported.type === 'Identifier' ? spec.imported.name : spec.imported.value;
-            imports.push({ targetFile: resolved, symbolName: importedName });
-          } else if (spec.type === 'ImportNamespaceSpecifier') {
-            imports.push({ targetFile: resolved, symbolName: '*' });
-          }
-        });
-      },
-
-      // 处理 export { x } 或 export { x } from './y'
-      ExportNamedDeclaration({ node }) {
-        const resolvedSource = node.source ? resolvePath(fileDir, node.source.value) : null;
-
-        if (node.specifiers) {
-          node.specifiers.forEach(spec => {
-            if (spec.type === 'ExportSpecifier') {
-              const exportedName = spec.exported.type === 'Identifier' ? spec.exported.name : spec.exported.value;
-              const localName = spec.local.name;
-
-              if (resolvedSource) {
-                // re-export: export { Button } from './Button'
-                exports.set(exportedName, { sourceFile: resolvedSource, originalSymbol: localName });
-              } else {
-                // 本地导出: export { Button }
-                exports.set(exportedName, { sourceFile: filePath, originalSymbol: localName });
-              }
-            }
-          });
-        }
-
-        // 处理 export const Button = ... / export function Component() {}
-        if (node.declaration) {
-          const decl = node.declaration;
-          if (decl.id && decl.id.name) {
-            exports.set(decl.id.name, { sourceFile: filePath, originalSymbol: decl.id.name });
-          } else if (decl.declarations) {
-            decl.declarations.forEach(d => {
-              if (d.id && d.id.name) {
-                exports.set(d.id.name, { sourceFile: filePath, originalSymbol: d.id.name });
-              }
-            });
-          }
-        }
-      },
-
-      // 处理 export default
-      ExportDefaultDeclaration() {
-        exports.set('default', { sourceFile: filePath, originalSymbol: 'default' });
-      },
-
-      // 处理 export * from './Button' (Barrel Export)
-      ExportAllDeclaration({ node }) {
-        const resolved = resolvePath(fileDir, node.source.value);
-        if (resolved) {
-          if (node.exported) {
-            // export * as Utils from './utils'
-            const exportedName = node.exported.type === 'Identifier' ? node.exported.name : node.exported.value;
-            exports.set(exportedName, { sourceFile: resolved, originalSymbol: '*' });
-          } else {
-            // export * from './Button'
-            wildcardReExports.add(resolved);
-          }
-        }
-      },
-
-      // 兼容动态 import() 语法
-      CallExpression({ node }) {
-        if (node.callee.type === 'Import' && node.arguments[0]?.value) {
-          const resolved = resolvePath(fileDir, node.arguments[0].value);
-          if (resolved) imports.push({ targetFile: resolved, symbolName: '*' });
+  // 解析导入路径
+  resolveImportPath(currentFilePath, importPath) {
+    // 处理相对路径
+    if (importPath.startsWith('.')) {
+      const currentDir = path.dirname(currentFilePath);
+      let resolvedPath = path.resolve(currentDir, importPath);
+      
+      // 尝试添加扩展名
+      const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '.vue', '.mjs', '.cjs'];
+      for (const ext of extensions) {
+        const testPath = resolvedPath + ext;
+        if (this.fileMap.has(testPath)) {
+          return testPath;
         }
       }
-    });
-  } catch (err) {
-    // 遇到无法解析的非标准 TS 语法时妥善跳过
+      
+      // 尝试作为目录处理 (index文件)
+      for (const ext of extensions) {
+        const testPath = path.join(resolvedPath, 'index' + ext);
+        if (this.fileMap.has(testPath)) {
+          return testPath;
+        }
+      }
+      
+      return null;
+    }
+    
+    // 处理绝对路径或别名路径 - 这里简化处理，实际项目中可能需要更复杂的解析
+    // 检查是否在项目路径下
+    const fullPath = path.resolve(this.projectPath, importPath);
+    if (this.fileMap.has(fullPath)) {
+      return fullPath;
+    }
+    
+    return null;
   }
 
-  const result = { filePath, exports, wildcardReExports, imports };
-  fileAnalysisMap.set(filePath, result);
-  return result;
-}
-
-// 3. 符号级追踪引擎：递归穿透 index.ts 找到真实的定义文件 (.tsx)
-const usedFiles = new Set();
-const visitedSymbols = new Set();
-
-function traceSymbol(filePath, symbolName) {
-  const symbolKey = `${filePath}::${symbolName}`;
-  if (visitedSymbols.has(symbolKey)) return;
-  visitedSymbols.add(symbolKey);
-
-  usedFiles.add(filePath);
-
-  const fileData = analyzeFile(filePath);
-  if (!fileData) return;
-
-  // 如果是命名空间导入 (import * as X)，追踪目标文件的所有导出与依赖
-  if (symbolName === '*') {
-    fileData.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
-    fileData.exports.forEach(exp => {
-      if (exp.sourceFile) traceSymbol(exp.sourceFile, exp.originalSymbol);
-    });
-    fileData.wildcardReExports.forEach(reExportFile => traceSymbol(reExportFile, '*'));
-    return;
+  // 构建依赖图
+  buildDependencyGraph() {
+    for (const [filePath, content] of this.fileMap) {
+      const dependencies = this.parseDependencies(filePath, content);
+      this.dependencyGraph.set(filePath, dependencies);
+      
+      // 构建反向依赖图
+      for (const dep of dependencies) {
+        if (!this.reverseDependencyGraph.has(dep)) {
+          this.reverseDependencyGraph.set(dep, []);
+        }
+        this.reverseDependencyGraph.get(dep).push(filePath);
+      }
+    }
   }
 
-  // 情况 A: 在当前文件中找到直接或具名重导出
-  if (fileData.exports.has(symbolName)) {
-    const exp = fileData.exports.get(symbolName);
-    if (exp.sourceFile === filePath) {
-      // 在本地文件中定义：进一步追踪该文件内部引用的其他符号
-      fileData.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
+  // 查找入口点（feature目录下的最上层index文件）
+  findEntryPoints() {
+    const featureFiles = [];
+    
+    // 递归查找feature目录下的所有文件
+    const traverseFeatureDir = (dir) => {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+          traverseFeatureDir(filePath);
+        } else if (this.isCodeFile(file) && path.basename(file).startsWith('index')) {
+          featureFiles.push(filePath);
+        }
+      }
+    };
+    
+    if (fs.existsSync(this.featurePath)) {
+      traverseFeatureDir(this.featurePath);
+    }
+    
+    // 找到最上层的index文件（路径深度最小的）
+    let minDepth = Infinity;
+    for (const filePath of featureFiles) {
+      const depth = filePath.split(path.sep).length;
+      if (depth < minDepth) {
+        minDepth = depth;
+        this.entryPoints = new Set([filePath]);
+      } else if (depth === minDepth) {
+        this.entryPoints.add(filePath);
+      }
+    }
+  }
+
+  // 从入口点开始遍历可达的组件
+  traverseReachableComponents() {
+    const queue = Array.from(this.entryPoints);
+    this.visited = new Set(queue);
+    
+    while (queue.length > 0) {
+      const currentFile = queue.shift();
+      const dependencies = this.dependencyGraph.get(currentFile) || [];
+      
+      for (const dep of dependencies) {
+        if (!this.visited.has(dep)) {
+          this.visited.add(dep);
+          queue.push(dep);
+        }
+      }
+    }
+  }
+
+  // 识别无用组件
+  findUnusedComponents() {
+    const allFiles = new Set(this.fileMap.keys());
+    
+    // 标记被访问过的文件为有用
+    const usefulFiles = this.visited;
+    
+    // 找出无用文件
+    for (const filePath of allFiles) {
+      if (!usefulFiles.has(filePath)) {
+        // 检查该文件是否被其他有用组件引用
+        const reverseDeps = this.reverseDependencyGraph.get(filePath) || [];
+        const hasUsefulRef = reverseDeps.some(dep => usefulFiles.has(dep));
+        
+        if (!hasUsefulRef) {
+          // 如果该文件及其所有依赖都没有被有用组件引用，则为无用
+          this.unusedComponents.add(filePath);
+        }
+      }
+    }
+    
+    // 进一步优化：如果一个无用的文件被另一个无用的文件引用，它们都是无用的
+    // 但如果一个无用的文件被有用文件引用，它不应该被标记为无用
+    // 但考虑到我们的条件是从feature无法到达，所以只要不是从feature可达的，都是无用的
+    // 但需要排除被有用文件引用的文件
+    for (const filePath of allFiles) {
+      if (!usefulFiles.has(filePath)) {
+        const reverseDeps = this.reverseDependencyGraph.get(filePath) || [];
+        const hasUsefulRef = reverseDeps.some(dep => usefulFiles.has(dep));
+        
+        // 只有完全不被有用组件引用的，才标记为无用
+        if (!hasUsefulRef) {
+          this.unusedComponents.add(filePath);
+        }
+      }
+    }
+  }
+
+  // 打印结果
+  printResults() {
+    console.log('\n=== 无用组件分析报告 ===\n');
+    
+    if (this.unusedComponents.size === 0) {
+      console.log('✅ 所有组件都被使用，没有发现无用组件！');
+      return;
+    }
+    
+    console.log(`发现 ${this.unusedComponents.size} 个无用组件：\n`);
+    
+    // 按路径排序输出
+    const sortedFiles = Array.from(this.unusedComponents).sort();
+    for (const filePath of sortedFiles) {
+      // 计算相对于项目路径的相对路径
+      const relativePath = path.relative(this.projectPath, filePath);
+      console.log(`📁 ${relativePath}`);
+      
+      // 显示该文件被哪些无用文件引用（帮助理解依赖链）
+      const deps = this.dependencyGraph.get(filePath) || [];
+      if (deps.length > 0) {
+        console.log(`   依赖: ${deps.map(d => path.relative(this.projectPath, d)).join(', ')}`);
+      }
+      
+      // 显示被哪些无用文件引用
+      const reverseDeps = this.reverseDependencyGraph.get(filePath) || [];
+      const unusedReverseDeps = reverseDeps.filter(dep => this.unusedComponents.has(dep));
+      if (unusedReverseDeps.length > 0) {
+        console.log(`   被引用: ${unusedReverseDeps.map(d => path.relative(this.projectPath, d)).join(', ')}`);
+      }
+      console.log('');
+    }
+    
+    // 输出依赖链示例
+    console.log('\n=== 依赖链分析 ===');
+    console.log('以下是示例依赖链，帮助理解为什么这些组件被认为无用：\n');
+    
+    let count = 0;
+    for (const filePath of sortedFiles) {
+      if (count >= 3) break; // 只显示3个示例
+      count++;
+      
+      console.log(`示例 ${count}: ${path.relative(this.projectPath, filePath)}`);
+      this.printDependencyChain(filePath);
+      console.log('');
+    }
+  }
+
+  // 打印依赖链（用于调试）
+  printDependencyChain(filePath, depth = 0, visited = new Set()) {
+    if (visited.has(filePath)) return;
+    visited.add(filePath);
+    
+    const indent = '  '.repeat(depth);
+    const relativePath = path.relative(this.projectPath, filePath);
+    
+    if (depth === 0) {
+      console.log(`${indent}📄 ${relativePath} (无用)`);
     } else {
-      // 经过 index.ts 重导出：继续向下追踪源文件
-      traceSymbol(exp.sourceFile, exp.originalSymbol);
+      console.log(`${indent}└── ${relativePath}`);
     }
-    return;
-  }
-
-  // 情况 B: 当前文件未直接找到，但在 export * from '...' 中
-  for (const reExportFile of fileData.wildcardReExports) {
-    traceSymbol(reExportFile, symbolName);
-  }
-}
-
-// 4. 主流程逻辑
-function run() {
-  console.log(`\n🔍 正在扫描项目: ${projectRoot} ...\n`);
-
-  // 搜集项目内所有的 TS/TSX 文件
-  const allFiles = globSync('**/*.{ts,tsx,js,jsx}', {
-    cwd: projectRoot,
-    ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.d.ts', '**/*.test.*', '**/*.spec.*']
-  }).map(f => path.resolve(projectRoot, f));
-
-  // 预解析所有文件
-  allFiles.forEach(analyzeFile);
-
-  // 自动识别项目入口点文件 (Pages, Routes, App, Main, 或非 components 目录下的逻辑文件)
-  const entryFiles = allFiles.filter(f => {
-    const rel = path.relative(projectRoot, f).replace(/\\/g, '/');
-    return (
-      rel.startsWith('pages/') ||
-      rel.startsWith('app/') ||
-      rel.startsWith('routes/') ||
-      /^(src\/)?(App|main|index)\.(tsx|ts|jsx|js)$/i.test(rel) ||
-      (!rel.includes('components/') && !rel.endsWith('.tsx')) // 标记非组件的业务/逻辑文件为起点
-    );
-  });
-
-  // 从所有入口点开始向下递归追踪依赖符号
-  entryFiles.forEach(entry => {
-    usedFiles.add(entry);
-    const data = analyzeFile(entry);
-    if (data) {
-      data.imports.forEach(imp => traceSymbol(imp.targetFile, imp.symbolName));
-    }
-  });
-
-  // 筛选出所有 .tsx 组件文件
-  const allTsxComponents = allFiles.filter(f => f.endsWith('.tsx'));
-
-  // 找出未使用的 .tsx 组件
-  const unusedTsxFiles = allTsxComponents.filter(f => !usedFiles.has(f));
-
-  // 5. 分析主未使用组件与“级联未引用的子组件”
-  const unusedSet = new Set(unusedTsxFiles);
-  const subComponentMap = new Map(); // ParentPath -> Array of ChildPaths
-  const mainUnusedComponents = [];
-
-  unusedTsxFiles.forEach(file => {
-    const fileData = analyzeFile(file);
-    let isChildOfOtherUnused = false;
-
-    // 检查该未使用组件，是否只被其他“同样未使用的组件”所引用
-    for (const otherUnused of unusedTsxFiles) {
-      if (otherUnused === file) continue;
-      const otherData = analyzeFile(otherUnused);
-      if (otherData) {
-        const referencesFile = otherData.imports.some(imp => {
-          // 检查直接引用或通过 index 引用
-          const exp = analyzeFile(imp.targetFile)?.exports.get(imp.symbolName);
-          return imp.targetFile === file || exp?.sourceFile === file;
-        });
-
-        if (referencesFile) {
-          isChildOfOtherUnused = true;
-          if (!subComponentMap.has(otherUnused)) {
-            subComponentMap.set(otherUnused, []);
-          }
-          subComponentMap.get(otherUnused).push(file);
-          break;
-        }
+    
+    const deps = this.dependencyGraph.get(filePath) || [];
+    for (const dep of deps) {
+      if (!this.entryPoints.has(dep) && !this.visited.has(dep)) {
+        this.printDependencyChain(dep, depth + 1, visited);
       }
     }
-
-    if (!isChildOfOtherUnused) {
-      mainUnusedComponents.push(file);
-    }
-  });
-
-  // 6. 输出报告
-  console.log('================ 📊 TSX 未使用组件分析报告 ================\n');
-
-  if (mainUnusedComponents.length === 0) {
-    console.log('🎉 太棒了！项目中没有发现未使用的 .tsx 组件。');
-    return;
   }
 
-  console.log(`发现 ${mainUnusedComponents.length} 个独立未使用的组件:\n`);
-
-  mainUnusedComponents.forEach((file, index) => {
-    const relativePath = path.relative(projectRoot, file);
-    console.log(`${index + 1}. ❌ [未使用组件] ${relativePath}`);
-
-    // 打印其带出的子组件
-    const children = subComponentMap.get(file);
-    if (children && children.length > 0) {
-      children.forEach(child => {
-        const childRel = path.relative(projectRoot, child);
-        console.log(`   └─ 🔗 [随之失效的子组件] ${childRel}`);
-      });
-    }
-  });
-
-  console.log('\n===========================================================\n');
+  // 主方法
+  analyze() {
+    console.log('🔍 开始分析项目依赖...');
+    console.log(`项目路径: ${this.projectPath}`);
+    console.log(`Feature路径: ${this.featurePath}`);
+    
+    console.log('📖 读取项目文件...');
+    this.readAllFiles(this.projectPath);
+    console.log(`找到 ${this.fileMap.size} 个代码文件`);
+    
+    console.log('🔗 构建依赖图...');
+    this.buildDependencyGraph();
+    
+    console.log('🎯 查找入口点...');
+    this.findEntryPoints();
+    console.log(`找到 ${this.entryPoints.size} 个入口点`);
+    
+    console.log('🚀 遍历可达组件...');
+    this.traverseReachableComponents();
+    console.log(`从入口点可达 ${this.visited.size} 个文件`);
+    
+    console.log('🔎 识别无用组件...');
+    this.findUnusedComponents();
+    
+    console.log('📊 生成报告...');
+    this.printResults();
+  }
 }
 
-run();
+// CLI入口
+function main() {
+  const args = process.argv.slice(2);
+  
+  if (args.length < 2) {
+    console.log('使用方法: node analyzer.js <项目路径> <feature路径>');
+    console.log('示例: node analyzer.js ./my-project ./my-project/src/feature');
+    process.exit(1);
+  }
+  
+  const projectPath = args[0];
+  const featurePath = args[1];
+  
+  if (!fs.existsSync(projectPath)) {
+    console.error(`❌ 项目路径不存在: ${projectPath}`);
+    process.exit(1);
+  }
+  
+  if (!fs.existsSync(featurePath)) {
+    console.error(`❌ Feature路径不存在: ${featurePath}`);
+    process.exit(1);
+  }
+  
+  const analyzer = new DependencyAnalyzer(projectPath, featurePath);
+  analyzer.analyze();
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = DependencyAnalyzer;
