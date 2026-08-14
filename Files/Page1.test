@@ -1,0 +1,66 @@
+jest.mock('~/feature/claim/house/components', () => ({
+  AlarmSet: () => <div data-testid="mock-alarm-set" />,
+  AuthorityReportFire: () => <div data-testid="mock-authority-report-fire" />,
+  AuthorityReportPolice: () => <div data-testid="mock-authority-report-police" />,
+  HouseEventLocation: () => <div data-testid="mock-house-event-location" />,
+  HouseLivable: () => <div data-testid="mock-house-livable" />,
+  HouseLocked: () => <div data-testid="mock-house-locked" />,
+  KeysStolen: () => <div data-testid="mock-keys-stolen" />,
+  LastPropertyInspection: () => <div data-testid="mock-last-property-inspection" />,
+  Occupancy: () => <div data-testid="mock-occupancy" />,
+  OtherPeopleDetail: () => <div data-testid="mock-other-people-detail" />,
+  VacantDate: () => <div data-testid="mock-vacant-date" />,
+}));
+
+
+jest.mock('~/feature/claim/shared/components', () => ({
+  EventDescription: () => <div data-testid="mock-event-description" />,
+  EventLocation: () => <div data-testid="mock-event-location" />,
+  FloatingToolbar: () => <div data-testid="mock-floating-toolbar" />,
+  FormFooter: () => <div data-testid="mock-form-footer" />,
+  PreStepsSummary: () => <div data-testid="mock-pre-steps-summary" />,
+  WitnessSection: () => <div data-testid="mock-witness-section" />,
+}));
+
+jest.mock('~/feature/claim/shared/components/dumb', () => ({
+  ClaimNumber: () => <div data-testid="mock-claim-number" />,
+}));
+
+jest.mock('react-redux-form', () => ({
+  Form: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="mock-form">{children}</div>
+  ),
+}));
+
+it('should not render the vacancy question if house is occupied', () => {
+  renderComponent(<Page1 />, {
+    initialState,
+    translationData,
+  });
+
+  expect(
+    screen.queryByTestId('mock-vacant-date')
+  ).not.toBeInTheDocument();
+});
+
+it('should render the vacancy question if house is unoccupied', () => {
+  const newState = {
+    ...initialState,
+    myForms: {
+      ...initialState.myForms,
+      houseClaim: {
+        ...initialState.myForms.houseClaim,
+        occupancy: OCCUPANCY_EMPTY,
+      },
+    },
+  };
+
+  renderComponent(<Page1 />, {
+    initialState: newState,
+    translationData,
+  });
+
+  expect(
+    screen.getByTestId('mock-vacant-date')
+  ).toBeInTheDocument();
+});
