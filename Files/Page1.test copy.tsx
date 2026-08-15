@@ -1,8 +1,10 @@
 import * as React from 'react';
+import { screen } from '@testing-library/react';
+import type { ApplicationState } from '~/root/rootReducer';
+
 import Page1Container from './Page1';
 import { renderComponent } from '~/common/test-utilities/renderComponent';
-import { screen } from '@testing-library/dom';
-import type { ApplicationState } from '~/root/rootReducer';
+
 import { getDefaultQuoteHouseState } from '../state';
 import { getDefaultQuoteLandlordsState } from '../../landlord/state';
 import { completedHouseQuote } from '../state/__mocks__/houseTestData';
@@ -10,104 +12,156 @@ import { getDefaultQuoteState } from '../../state';
 import { getDefaultQuoteSharedState } from '../../shared/state';
 import { moment } from '~/common/twr-moment/twr-moment';
 
-// ============================================================================
-// Performance Optimization: Mock heavy dependencies to avoid full page rendering
-// ============================================================================
-
 /**
- * Mock translation to return the key as-is.
- * This allows sub-components to render predictable text that matches
- * existing test assertions without initializing the full i18n engine.
- */
-jest.mock('~/common/utilities/translation', () => ({
-  translate: (namespaces?: string[]) => (Component: React.ComponentType<any>) => {
-    const WrappedComponent = (props: any) => (
-      <Component {...props} t={(key: string) => key} />
-    );
-    WrappedComponent.displayName = `Translate(${Component.displayName || Component.name})`;
-    return WrappedComponent;
-  },
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
-/**
- * Mock react-redux-form Form to avoid heavy form store initialization.
- * We preserve the children and standard form attributes so that
- * query selectors for buttons/headings inside the form still work.
- */
-jest.mock('react-redux-form', () => {
-  const actual = jest.requireActual('react-redux-form');
-  return {
-    ...actual,
-    Form: React.forwardRef<any, any>(({ children, model, ...rest }, ref) => (
-      <form ref={ref} data-model={model} {...rest}>{children}</form>
-    )),
-  };
-});
-
-/**
- * Mock the heavy view-model hook.
- * This is the primary performance bottleneck — the real hook performs
- * complex state derivation and side-effects. By mocking it we keep
- * component rendering logic under test while skipping the heavy lifting.
+ * Page1 is responsible for deciding which child components are rendered.
  *
- * Coverage note: useHousePage1ViewModel should have its own unit tests
- * in useHousePage1ViewModel.test.ts to ensure logic coverage.
+ * The child components themselves have their own unit tests.
+ * These mocks intentionally reduce Page1 tests to page-level composition tests.
  */
-jest.mock('./useHousePage1ViewModel', () => ({
-  useHousePage1ViewModel: jest.fn(),
+
+/* -------------------------------------------------------------------------- */
+/* House question components                                                  */
+/* -------------------------------------------------------------------------- */
+
+jest.mock('~/feature/quote/house/components', () => ({
+  ConstructionDetails: () => (
+    <div data-testid="construction-details" />
+  ),
+
+  ExternalSelfContainedUnit: () => (
+    <div data-testid="external-self-contained-unit" />
+  ),
+
+  HolidayHomeRented: () => (
+    <div data-testid="holiday-home-rented" />
+  ),
+
+  HouseClaims: () => (
+    <div data-testid="house-claims" />
+  ),
+
+  HouseOccupancy: () => (
+    <div data-testid="house-occupancy" />
+  ),
+
+  HouseQuoteAddressLookup: () => (
+    <div data-testid="house-quote-address-lookup" />
+  ),
+
+  HouseRentedTenants: () => (
+    <div data-testid="house-rented-tenants" />
+  ),
+
+  HouseUsedForBusiness: () => (
+    <div data-testid="house-used-for-business" />
+  ),
+
+  NaturalHazard: () => (
+    <div data-testid="natural-hazard" />
+  ),
+
+  OwnerDetails: () => (
+    <div data-testid="owner-details" />
+  ),
+
+  PreviousHouseClaims: () => (
+    <div data-testid="previous-house-claims" />
+  ),
+
+  ReroofedRelinedRewired: () => (
+    <div data-testid="reroofed-relined-rewired" />
+  ),
+
+  SumInsuredAmount: () => (
+    <div data-testid="sum-insured-amount" />
+  ),
+
+  TypeOfBusiness: () => (
+    <div data-testid="type-of-business" />
+  )
 }));
 
-import { useHousePage1ViewModel } from './useHousePage1ViewModel';
-const mockedUseHousePage1ViewModel = useHousePage1ViewModel as jest.Mock;
+/* -------------------------------------------------------------------------- */
+/* Property type components                                                   */
+/* -------------------------------------------------------------------------- */
 
-// ============================================================================
-// ViewModel Mock Helpers
-// ============================================================================
+jest.mock('../components/question/PropertyType/PropertyConnected', () => ({
+  PropertyConnected: () => (
+    <div data-testid="property-connected" />
+  )
+}));
 
-interface ViewModelOverrides {
-  loading?: boolean;
-  houseOrLandlord?: 'house' | 'landlord';
-  actualState?: any;
-  heading?: string;
-  awardsEnabled?: boolean;
-  awards?: any[];
-  hazardDataEnabled?: boolean;
-  formSubmitted?: boolean;
-  holidayHomeRentedValidationValue?: any;
-  modelPath?: string;
-  formModelPath?: string;
-  [key: string]: any;
-}
+jest.mock('../components/question/PropertyType/PropertySelfSufficient', () => ({
+  PropertySelfSufficient: () => (
+    <div data-testid="property-self-sufficient" />
+  )
+}));
 
-const createDefaultViewModel = (overrides: ViewModelOverrides = {}) => ({
-  setPolicies: jest.fn(),
-  setOwnerDetails: jest.fn(),
-  loadHouseOrLandlordExcesses: jest.fn(),
-  changeModelPath: jest.fn(),
-  handleLandlordTransition: jest.fn(),
-  handleFormFooterSubmit: jest.fn(),
-  loadHazardDataValues: jest.fn(),
-  triggerGAEvents: jest.fn(),
-  loading: false,
-  houseOrLandlord: 'house' as const,
-  modelPath: 'myForms.houseQuote',
-  formModelPath: 'myForms.houseQuote.houseDetails',
-  heading: 'heading.page1',
-  awardsEnabled: false,
-  awards: [],
-  actualState: getDefaultQuoteHouseState(),
-  hazardDataEnabled: false,
-  formSubmitted: false,
-  holidayHomeRentedValidationValue: null,
-  ...overrides,
-});
+jest.mock('../components/question/PropertyType/PropertyStacked', () => ({
+  PropertyStacked: () => (
+    <div data-testid="property-stacked" />
+  )
+}));
 
-// ============================================================================
-// Test Data
-// ============================================================================
+jest.mock('../components/question/PropertyType/PropertyType', () => ({
+  PropertyType: () => (
+    <div data-testid="property-type" />
+  )
+}));
 
-describe('House page1', () => {
+/* -------------------------------------------------------------------------- */
+/* Shared child components                                                    */
+/* -------------------------------------------------------------------------- */
+
+jest.mock('../../shared/components/dumb/HazardData/HazardData', () => ({
+  HazardData: () => (
+    <div data-testid="hazard-data" />
+  )
+}));
+
+jest.mock('../../shared/components/dumb/AwardLogos/AwardLogos', () => ({
+  AwardLogos: () => (
+    <div data-testid="award-logos" />
+  )
+}));
+
+jest.mock(
+  '../../shared/components/smart/ReferenceNumber/ReferenceNumber',
+  () => ({
+    __esModule: true,
+    default: () => (
+      <div data-testid="reference-number" />
+    )
+  })
+);
+
+/**
+ * These components are imported from:
+ *
+ * ~/feature/quote/shared/components
+ *
+ * Mocking them keeps Page1 focused on whether the components are rendered,
+ * rather than testing their implementation.
+ */
+jest.mock('~/feature/quote/shared/components', () => ({
+  FloatingToolbar: () => (
+    <div data-testid="floating-toolbar" />
+  ),
+
+  FormFooter: () => (
+    <div data-testid="form-footer" />
+  ),
+
+  PolicyStartDate: () => (
+    <div data-testid="policy-start-date" />
+  ),
+
+  UnderwritingDialog: () => (
+    <div data-testid="underwriting-dialog" />
+  )
+}));
+
+describe('Page1', () => {
   const initialState = {
     myForms: {
       houseQuote: {
@@ -120,6 +174,7 @@ describe('House page1', () => {
           }
         }
       },
+
       landlordQuote: {
         ...getDefaultQuoteLandlordsState(),
         policyNumber: '54321',
@@ -131,11 +186,13 @@ describe('House page1', () => {
         }
       }
     },
+
     quote: {
       excesses: {
         house: [100, 200, 400, 500],
         landlord: [100, 200, 400, 500]
       },
+
       productTypes: [
         ...getDefaultQuoteState().productTypes,
         {
@@ -157,1823 +214,1378 @@ describe('House page1', () => {
     'quote:config': {
       showPropertyTypeQuestion: true
     },
+
     'quote:manualAddressEntry': false,
+
     'quote/house:livingArea': {
       maxFloorArea: 500
     },
+
     'quote:selfContainedUnit': true,
+
     'quote:quoteReference': {
       title: 'Your reference number:'
     }
   };
 
-  beforeEach(() => {
-    mockedUseHousePage1ViewModel.mockReturnValue(createDefaultViewModel());
-  });
+  const landlordUrlOptions = {
+    initialUrl: 'https://localhost:8080/quote/landlord/page1',
+    initialRoute: '/quote/landlord/page1'
+  };
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  const renderHouse = (
+    state: Partial<ApplicationState> = initialState
+  ) => {
+    renderComponent(<Page1Container />, {
+      initialState: state,
+      translationData
+    });
+  };
 
-  // ==============================================================================
-  // House Flow
-  // ==============================================================================
+  const renderLandlord = (
+    state: Partial<ApplicationState> = initialState
+  ) => {
+    renderComponent(<Page1Container />, {
+      initialState: state,
+      translationData,
+      ...landlordUrlOptions
+    });
+  };
+
+  const expectRendered = (testId: string) => {
+    expect(screen.getByTestId(testId)).toBeInTheDocument();
+  };
+
+  const expectNotRendered = (testId: string) => {
+    expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+  };
+
   describe('house', () => {
-    it('should render the page', () => {
-      renderComponent(<Page1Container />, { initialState });
-      expect(screen.getByRole('heading', { level: 1, name: 'heading.page1' })).toBeInTheDocument();
-    });
+    it('renders the page', () => {
+      renderHouse();
 
-    // Question 1
-    it('should render the address lookup', () => {
-      renderComponent(<Page1Container />, { initialState });
-      expect(screen.getByRole('heading', { level: 3, name: 'propertyType_address.title' })).toBeInTheDocument();
-      expect(screen.getByText('propertyType_address.description')).toBeInTheDocument();
-    });
-
-    it('should not render the constructionDetails question', () => {
-      renderComponent(<Page1Container />, { initialState, translationData });
-      expect(screen.queryByRole('heading', { level: 4, name: 'constructionDetails.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('constructionDetails.description')).not.toBeInTheDocument();
-    });
-
-    // @TODO Remove the conditions for the PropertyType questions QQ-3498
-
-    it('should not render the propertyType question', () => {
-      renderComponent(<Page1Container />, { initialState, translationData });
       expect(
-        screen.queryByRole('heading', { level: 3, name: 'propertyTypes.typeOfProperty.title' })
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText('propertyTypes.typeOfProperty.description')).not.toBeInTheDocument();
-    });
-
-    it('should render the propertyType question', () => {
-      const newState = {
-        ...initialState,
-        flags: { 'q2b-property-types': true },
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
+        screen.getByRole('heading', {
+          level: 1,
+          name: 'heading.page1'
         })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'propertyTypes.typeOfProperty.title' })).toBeInTheDocument();
-      expect(screen.getByText('propertyTypes.typeOfProperty.description')).toBeInTheDocument();
-    });
-
-    it('should render the propertyStacked question', () => {
-      const newState = {
-        ...initialState,
-        flags: { 'q2b-property-types': true },
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: {
-                type: 'Townhouse',
-                share: null
-              }
-            }
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: { type: 'Townhouse', share: null },
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 4, name: 'propertyTypes.propertyStacked.title' }));
-    });
-
-    it('should render the PropertySelfSufficient question', () => {
-      const newState = {
-        ...initialState,
-        flags: { 'q2b-property-types': true },
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: {
-                type: 'Tinyhouse',
-                selfSufficientTinyhouse: null
-              }
-            }
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: { type: 'Tinyhouse', selfSufficientTinyhouse: null },
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 4, name: 'propertyTypes.propertySelfSufficient.title' }));
-    });
-
-    it('should render the propertyConnected question', () => {
-      const newState = {
-        ...initialState,
-        flags: { 'q2b-property-types': true },
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: {
-                type: 'Townhouse',
-                share: false,
-                connected: null
-              }
-            }
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyType: { type: 'Townhouse', share: false, connected: null },
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 4, name: 'propertyTypes.propertyConnected.title' }));
-    });
-
-    // Question 2
-    it('should render the contructionDetails question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(
-        screen.getByRole('heading', { level: 3, name: '17E Watson Avenue, Sandringham, Auckland, 1025' })
       ).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 4, name: 'constructionDetails.title' })).toBeInTheDocument();
-      expect(screen.getByText('constructionDetails.description')).toBeInTheDocument();
     });
 
-    it('should not render the sumInsured question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              cordellValueLoading: true
+    describe('address', () => {
+      it('renders the address lookup', () => {
+        renderHouse();
+
+        expectRendered('house-quote-address-lookup');
+      });
+
+      it('does not render construction details without an address', () => {
+        renderHouse();
+
+        expectNotRendered('construction-details');
+      });
+    });
+
+    describe('property type', () => {
+      it('does not render the property type question when the feature flag is disabled', () => {
+        renderHouse();
+
+        expectNotRendered('property-type');
+      });
+
+      it('renders the property type question when the feature flag is enabled', () => {
+        const state = {
+          ...initialState,
+
+          flags: {
+            'q2b-property-types': true
+          },
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, cordellValueLoading: true },
+        };
+
+        renderHouse(state);
+
+        expectRendered('property-type');
+      });
+
+      it('renders the property stacked question for a townhouse', () => {
+        const state = {
+          ...initialState,
+
+          flags: {
+            'q2b-property-types': true
           },
-        })
-      );
 
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'sumInsuredAmount.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('sumInsuredAmount.description')).not.toBeInTheDocument();
-    });
+          myForms: {
+            ...initialState.myForms,
 
-    // @TODO add test & negative test for PropertyStacked once predicate & conditional rendering has been set up QQ-3575
-    // @TODO add test & negative test for PropertyConnected once predicate & conditional rendering has been set up QQ-3575
-    // @TODO add test & negative test for PropertySelfSufficient once predicate & conditional rendering has been set up QQ-3575
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
 
-    // Question 3
-    it('should render the sumInsured question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'sumInsuredAmount.title' })).toBeInTheDocument();
-      expect(screen.getByText('sumInsuredAmount.description')).toBeInTheDocument();
-    });
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
 
-    it('should not render refoofedRelinedRewired question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'reroofedRelinedRewired.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('reroofedRelinedRewired.description')).not.toBeInTheDocument();
-    });
-
-    // Question 4
-    it('should render the refoofedRelinedRewired question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              yearBuilt: 1930
+                propertyType: {
+                  type: 'Townhouse',
+                  share: null
+                }
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, yearBuilt: 1930 },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'reroofedRelinedRewired.title' })).toBeInTheDocument();
-      expect(screen.getByText('reroofedRelinedRewired.description')).toBeInTheDocument();
-    });
+        };
 
-    it('should not render the NaturalHazard question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              yearBuilt: 1930
+        renderHouse(state);
+
+        expectRendered('property-stacked');
+      });
+
+      it('renders the property self-sufficient question for a tiny house', () => {
+        const state = {
+          ...initialState,
+
+          flags: {
+            'q2b-property-types': true
+          },
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+
+                propertyType: {
+                  type: 'Tinyhouse',
+                  selfSufficientTinyhouse: null
+                }
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, yearBuilt: 1930 },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'naturalHazard.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('naturalHazard.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 5
-    it('should render NaturalHazard question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'naturalHazard.title' })).toBeInTheDocument();
-      expect(screen.getByText('naturalHazard.description')).toBeInTheDocument();
-    });
+        renderHouse(state);
 
-    it('should not render ExternalSelfContainedUnit question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyAtRiskFromNaturalHazardInd: true
+        expectRendered('property-self-sufficient');
+      });
+
+      it('renders the property connected question for a townhouse that is not stacked', () => {
+        const state = {
+          ...initialState,
+
+          flags: {
+            'q2b-property-types': true
+          },
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+
+                propertyType: {
+                  type: 'Townhouse',
+                  share: false,
+                  connected: null
+                }
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, propertyAtRiskFromNaturalHazardInd: true },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(
-        screen.queryByRole('heading', { level: 3, name: 'externalSelfContainedUnit.title' })
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText('externalSelfContainedUnit.description')).not.toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectRendered('property-connected');
+      });
     });
 
-    // Question 6
-    it('should render ExternalSelfContainedUnit question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'externalSelfContainedUnit.title' })).toBeInTheDocument();
-      expect(screen.getByText('externalSelfContainedUnit.description')).toBeInTheDocument();
-    });
+    describe('construction details', () => {
+      it('renders construction details when an address is available', () => {
+        const state = {
+          ...initialState,
 
-    it('should not render HouseOccupancy question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units2'
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, numberOfSelfContainedUnits: 'units2' },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'houseOccupancy.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('houseOccupancy.description')).not.toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectRendered('construction-details');
+      });
     });
 
-    // Question 7
-    it('should render houseOccupancy question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'houseOccupancy.title' })).toBeInTheDocument();
-      expect(screen.getByText('houseOccupancy.description')).toBeInTheDocument();
-    });
+    describe('sum insured', () => {
+      it('does not render sum insured while the Cordell value is loading', () => {
+        const state = {
+          ...initialState,
 
-    it('should not render HomeUsedForBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              houseOccupancy: null as string
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                cordellValueLoading: true
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, houseOccupancy: null },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'houseUsedForBusiness.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('houseUsedForBusiness.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 8
-    it('should render HomeUsedForBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'houseUsedForBusiness.title' })).toBeInTheDocument();
-      expect(screen.getByText('houseUsedForBusiness.description')).toBeInTheDocument();
-    });
+        renderHouse(state);
 
-    it('should not render TypeOfBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'typeOfBusiness.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('typeOfBusiness.description')).not.toBeInTheDocument();
-    });
+        expectNotRendered('sum-insured-amount');
+      });
 
-    // Question 9
-    it('should render TypeOfBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              businessConductedInd: true
+      it('renders sum insured when the Cordell value has loaded', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, businessConductedInd: true },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'typeOfBusiness.title' })).toBeInTheDocument();
-      expect(screen.getByText('typeOfBusiness.description')).toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectRendered('sum-insured-amount');
+      });
     });
 
-    // Question 10
-    it('should render the OwnerDateOfBirth question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'ownerDateOfBirth.title' })).toBeInTheDocument();
-      expect(screen.getByText('ownerDateOfBirth.description')).toBeInTheDocument();
-    });
+    describe('property age and natural hazard', () => {
+      it('does not render reroofed, relined and rewired for the default property', () => {
+        const state = {
+          ...initialState,
 
-    it('should not render the PreviousHouseClaims question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              ownerDetails: null as string
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, ownerDetails: null },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'previousHouseClaims.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('previousHouseClaims.description')).not.toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('reroofed-relined-rewired');
+      });
+
+      it('renders reroofed, relined and rewired for an older property', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                yearBuilt: 1930
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('reroofed-relined-rewired');
+      });
+
+      it('does not render natural hazard for an older property', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                yearBuilt: 1930
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('natural-hazard');
+      });
+
+      it('renders natural hazard when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('natural-hazard');
+      });
     });
 
-    // Question 10
-    it('should render the PreviousHouseClaims question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
+    describe('external self-contained unit', () => {
+      it('does not render an external self-contained unit when the property is at risk from natural hazard', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                propertyAtRiskFromNaturalHazardInd: true
+              }
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'previousHouseClaims.title' })).toBeInTheDocument();
-      expect(screen.getByText('previousHouseClaims.description')).toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('external-self-contained-unit');
+      });
+
+      it('renders an external self-contained unit when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('external-self-contained-unit');
+      });
     });
 
-    it('should not render the PolicyStartDate question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: true
+    describe('occupancy and business', () => {
+      it('does not render house occupancy when there are multiple self-contained units', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units2'
+              }
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: true,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.queryByRole('heading', { level: 3, name: 'policyStartDate.title' })).not.toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('house-occupancy');
+      });
+
+      it('renders house occupancy when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('house-occupancy');
+      });
+
+      it('does not render house used for business when occupancy is not selected', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                houseOccupancy: null as string
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('house-used-for-business');
+      });
+
+      it('renders house used for business when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('house-used-for-business');
+      });
+
+      it('does not render type of business when business is not conducted', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('type-of-business');
+      });
+
+      it('renders type of business when business is conducted', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                businessConductedInd: true
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('type-of-business');
+      });
     });
 
-    // Question 10
-    it('should render the PolicyStartDate question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false
+    describe('owner and claims', () => {
+      it('renders owner details when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByRole('heading', { level: 3, name: 'policyStartDate.title' })).toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectRendered('owner-details');
+      });
+
+      it('does not render previous house claims when owner details are unavailable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                ownerDetails: null as string
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('previous-house-claims');
+      });
+
+      it('renders previous house claims when owner details are available', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('previous-house-claims');
+      });
+
+      it('does not render policy start date when there are previous house claims', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                previousHouseClaims: true
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectNotRendered('policy-start-date');
+      });
+
+      it('renders policy start date when there are no previous house claims', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                previousHouseClaims: false
+              }
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('policy-start-date');
+      });
     });
 
-    it('should render the floating toolbar', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByText('button.finishLater')).toBeInTheDocument();
-    });
+    describe('page controls', () => {
+      it('renders the floating toolbar', () => {
+        const state = {
+          ...initialState,
 
-    it('should render the footer', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          houseQuote: {
-            ...getDefaultQuoteHouseState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false
-          },
-          sharedQuote: {
-            ...getDefaultQuoteSharedState(),
-            policyStartDate: moment().add(1, 'days').toLocaleString()
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                previousHouseClaims: false
+              }
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          actualState: {
-            ...getDefaultQuoteHouseState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, { initialState: newState, translationData });
-      expect(screen.getByText('button.nextCustomise')).toBeInTheDocument();
+        };
+
+        renderHouse(state);
+
+        expectRendered('floating-toolbar');
+      });
+
+      it('renders the footer when the page is valid', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            houseQuote: {
+              ...getDefaultQuoteHouseState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                previousHouseClaims: false
+              }
+            },
+
+            sharedQuote: {
+              ...getDefaultQuoteSharedState(),
+              policyStartDate: moment()
+                .add(1, 'days')
+                .toLocaleString()
+            }
+          }
+        };
+
+        renderHouse(state);
+
+        expectRendered('form-footer');
+      });
+
+      it('renders the reference number component', () => {
+        renderHouse();
+
+        expectRendered('reference-number');
+      });
     });
   });
 
-  // ==============================================================================
-  // Landlord Flow
-  // ==============================================================================
   describe('landlord', () => {
-    it('should render the page - landlord', () => {
-      renderComponent(<Page1Container />, {
-        initialState,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 1, name: 'heading.page1' })).toBeInTheDocument();
-    });
-
-    // Question 1
-    it('should render the address lookup - landlord', () => {
-      renderComponent(<Page1Container />, {
-        initialState,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'propertyType_address.title' })).toBeInTheDocument();
-      expect(screen.getByText('propertyType_address.description')).toBeInTheDocument();
-    });
-
-    it('should not render the constructionDetails question', () => {
-      renderComponent(<Page1Container />, {
-        initialState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.queryByRole('heading', { level: 4, name: 'constructionDetails.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('constructionDetails.description')).not.toBeInTheDocument();
-    });
-
-    // Question 2
-    it('should render the contructionDetails question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
+    it('renders the page', () => {
+      renderLandlord();
 
       expect(
-        screen.getByRole('heading', { level: 3, name: '17E Watson Avenue, Sandringham, Auckland, 1025' })
+        screen.getByRole('heading', {
+          level: 1,
+          name: 'heading.page1'
+        })
       ).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 4, name: 'constructionDetails.title' })).toBeInTheDocument();
-      expect(screen.getByText('constructionDetails.description')).toBeInTheDocument();
     });
 
-    it('should not render the sumInsured question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              cordellValueLoading: true
+    describe('address', () => {
+      it('renders the address lookup', () => {
+        renderLandlord();
+
+        expectRendered('house-quote-address-lookup');
+      });
+
+      it('does not render construction details without an address', () => {
+        renderLandlord();
+
+        expectNotRendered('construction-details');
+      });
+
+      it('renders construction details when an address is available', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, cordellValueLoading: true },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('construction-details');
       });
-      expect(screen.queryByRole('heading', { level: 3, name: 'sumInsuredAmount.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('sumInsuredAmount.description')).not.toBeInTheDocument();
     });
 
-    // Question 3
-    it('should render the sumInsured question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'sumInsuredAmount.title' })).toBeInTheDocument();
-      expect(screen.getByText('sumInsuredAmount.description')).toBeInTheDocument();
-    });
+    describe('sum insured', () => {
+      it('does not render sum insured while the Cordell value is loading', () => {
+        const state = {
+          ...initialState,
 
-    it('should not render refoofedRelinedRewired question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.queryByRole('heading', { level: 3, name: 'reroofedRelinedRewired.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('reroofedRelinedRewired.description')).not.toBeInTheDocument();
-    });
+          myForms: {
+            ...initialState.myForms,
 
-    // Question 4
-    it('should render the refoofedRelinedRewired question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              yearBuilt: 1930
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                cordellValueLoading: true
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, yearBuilt: 1930 },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'reroofedRelinedRewired.title' })).toBeInTheDocument();
-      expect(screen.getByText('reroofedRelinedRewired.description')).toBeInTheDocument();
-    });
+        };
 
-    it('should not render the NaturalHazard question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              yearBuilt: 1930
+        renderLandlord(state);
+
+        expectNotRendered('sum-insured-amount');
+      });
+
+      it('renders sum insured when the Cordell value has loaded', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, yearBuilt: 1930 },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('sum-insured-amount');
       });
-      expect(screen.queryByRole('heading', { level: 3, name: 'naturalHazard.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('naturalHazard.description')).not.toBeInTheDocument();
     });
 
-    // Question 5
-    it('should render NaturalHazard question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'naturalHazard.title' })).toBeInTheDocument();
-      expect(screen.getByText('naturalHazard.description')).toBeInTheDocument();
-    });
+    describe('property age and natural hazard', () => {
+      it('does not render reroofed, relined and rewired for the default property', () => {
+        const state = {
+          ...initialState,
 
-    it('should not render ExternalSelfContainedUnit question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              propertyAtRiskFromNaturalHazardInd: true
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, propertyAtRiskFromNaturalHazardInd: true },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(
-        screen.queryByRole('heading', { level: 3, name: 'externalSelfContainedUnit.title' })
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText('externalSelfContainedUnit.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 6
-    it('should render ExternalSelfContainedUnit question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'externalSelfContainedUnit.title' })).toBeInTheDocument();
-      expect(screen.getByText('externalSelfContainedUnit.description')).toBeInTheDocument();
-    });
+        renderLandlord(state);
 
-    it('should not render HouseOccupancy question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units2'
+        expectNotRendered('reroofed-relined-rewired');
+      });
+
+      it('renders reroofed, relined and rewired for an older property', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                yearBuilt: 1930
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, numberOfSelfContainedUnits: 'units2' },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.queryByRole('heading', { level: 3, name: 'houseOccupancy.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('houseOccupancy.description')).not.toBeInTheDocument();
-    });
+        };
 
-    it('should render houseOccupancy question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units2'
+        renderLandlord(state);
+
+        expectRendered('reroofed-relined-rewired');
+      });
+
+      it('does not render natural hazard for an older property', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                yearBuilt: 1930
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, numberOfSelfContainedUnits: 'units2' },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.queryByRole('heading', { level: 3, name: 'houseRentedTenants.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('houseRentedTenants.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 7
-    it('should render houseOccupancy question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: completedHouseQuote.houseDetails,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'houseRentedTenants.title' })).toBeInTheDocument();
-      expect(screen.getByText('houseRentedTenants.description')).toBeInTheDocument();
-    });
+        renderLandlord(state);
 
-    it('should not render HomeUsedForBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              houseOccupancy: null as string
+        expectNotRendered('natural-hazard');
+      });
+
+      it('renders natural hazard when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: { ...completedHouseQuote.houseDetails, houseOccupancy: null },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('natural-hazard');
       });
-      expect(screen.queryByRole('heading', { level: 3, name: 'houseUsedForBusiness.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('houseUsedForBusiness.description')).not.toBeInTheDocument();
     });
 
-    it('should render the holidayHomeRented question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants'
+    describe('external self-contained unit', () => {
+      it('does not render an external self-contained unit when the property is at risk from natural hazard', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                propertyAtRiskFromNaturalHazardInd: true
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectNotRendered('external-self-contained-unit');
       });
 
-      expect(screen.getByRole('heading', { level: 3, name: 'holidayHomeRented.title' })).toBeInTheDocument();
-      expect(screen.getByText('holidayHomeRented.description')).toBeInTheDocument();
-    });
+      it('renders an external self-contained unit when applicable', () => {
+        const state = {
+          ...initialState,
 
-    // Question 8
-    it('should render HomeUsedForBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('external-self-contained-unit');
       });
-      expect(screen.getByRole('heading', { level: 3, name: 'houseUsedForBusiness.title' })).toBeInTheDocument();
-      expect(screen.getByText('houseUsedForBusiness.description')).toBeInTheDocument();
     });
 
-    it('should not render TypeOfBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+    describe('rental occupancy', () => {
+      it('does not render house rented tenants when there are multiple self-contained units', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units2'
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.queryByRole('heading', { level: 3, name: 'typeOfBusiness.title' })).not.toBeInTheDocument();
-      expect(screen.queryByText('typeOfBusiness.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 9
-    it('should render TypeOfBusiness question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              businessConductedInd: true,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+        renderLandlord(state);
+
+        expectNotRendered('house-rented-tenants');
+      });
+
+      it('renders house rented tenants when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+              houseDetails: completedHouseQuote.houseDetails
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              businessConductedInd: true,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'typeOfBusiness.title' })).toBeInTheDocument();
-      expect(screen.getByText('typeOfBusiness.description')).toBeInTheDocument();
-    });
+        };
 
-    // Question 10
-    it('should render the OwnerDateOfBirth question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+        renderLandlord(state);
+
+        expectRendered('house-rented-tenants');
+      });
+
+      it('renders holiday home rented when the rental conditions are met', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants'
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('holiday-home-rented');
       });
-      expect(screen.getByRole('heading', { level: 3, name: 'ownerDateOfBirth.title' })).toBeInTheDocument();
-      expect(screen.getByText('ownerDateOfBirth.description')).toBeInTheDocument();
     });
 
-    it('should not render the PreviousHouseClaims question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              ownerDetails: null as string,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+    describe('business', () => {
+      it('does not render house used for business when the rental condition is not met', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                houseOccupancy: null as string
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              ownerDetails: null,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(
-        screen.queryByRole('heading', { level: 3, name: 'previousHouseClaimsLandlord.title' })
-      ).not.toBeInTheDocument();
-      expect(screen.queryByText('previousHouseClaimsLandlord.description')).not.toBeInTheDocument();
-    });
+        };
 
-    // Question 10
-    it('should render the PreviousHouseClaims question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
+        renderLandlord(state);
+
+        expectNotRendered('house-used-for-business');
+      });
+
+      it('renders house used for business when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
             }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('house-used-for-business');
       });
-      expect(screen.getByRole('heading', { level: 3, name: 'previousHouseClaimsLandlord.title' })).toBeInTheDocument();
-      expect(screen.getByText('previousHouseClaimsLandlord.description')).toBeInTheDocument();
+
+      it('does not render type of business when business is not conducted', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectNotRendered('type-of-business');
+      });
+
+      it('renders type of business when business is conducted', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                businessConductedInd: true,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectRendered('type-of-business');
+      });
     });
 
-    it('should not render the PolicyStartDate question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
-            },
-            previousHouseClaims: true
+    describe('owner and claims', () => {
+      it('renders owner details when applicable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-            previousHouseClaims: true,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('owner-details');
       });
-      expect(screen.queryByRole('heading', { level: 3, name: 'policyStartDate.title' })).not.toBeInTheDocument();
+
+      it('does not render previous house claims when owner details are unavailable', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                ownerDetails: null as string,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectNotRendered('previous-house-claims');
+      });
+
+      it('renders previous house claims when owner details are available', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectRendered('previous-house-claims');
+      });
+
+      it('does not render policy start date when there are previous house claims', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false,
+                previousHouseClaims: true
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectNotRendered('policy-start-date');
+      });
+
+      it('renders policy start date when there are no previous house claims', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false,
+                previousHouseClaims: false
+              }
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectRendered('policy-start-date');
+      });
     });
 
-    // Question 10
-    it('should render the PolicyStartDate question', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
-            },
-            previousHouseClaims: false
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByRole('heading', { level: 3, name: 'policyStartDate.title' })).toBeInTheDocument();
-    });
+    describe('page controls', () => {
+      it('renders the floating toolbar', () => {
+        const state = {
+          ...initialState,
 
-    it('should render the floating toolbar', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
-            },
-            previousHouseClaims: false
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByText('button.finishLater')).toBeInTheDocument();
-    });
+          myForms: {
+            ...initialState.myForms,
 
-    it('should render the footer', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
-            },
-            previousHouseClaims: false
-          },
-          sharedQuote: {
-            ...getDefaultQuoteSharedState(),
-            policyStartDate: moment().add(1, 'days').toLocaleString()
-          }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
-      });
-      expect(screen.getByText('button.nextCustomise')).toBeInTheDocument();
-    });
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
 
-    it('should render the reference component', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          landlordQuote: {
-            ...getDefaultQuoteLandlordsState(),
-            policyNumber: '12345',
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false
-            },
-            previousHouseClaims: false
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false,
+                previousHouseClaims: false
+              }
+            }
           }
-        }
-      };
-      mockedUseHousePage1ViewModel.mockReturnValue(
-        createDefaultViewModel({
-          houseOrLandlord: 'landlord',
-          actualState: {
-            ...getDefaultQuoteLandlordsState(),
-            address: completedHouseQuote.address,
-            houseDetails: {
-              ...completedHouseQuote.houseDetails,
-              numberOfSelfContainedUnits: 'units1',
-              houseRentedTenants: 'tenants',
-              holidayHomeRented: false,
-            },
-            previousHouseClaims: false,
-          },
-        })
-      );
-      renderComponent(<Page1Container />, {
-        initialState: newState,
-        translationData,
-        initialUrl: 'https://localhost:8080/quote/landlord/page1',
-        initialRoute: '/quote/landlord/page1'
+        };
+
+        renderLandlord(state);
+
+        expectRendered('floating-toolbar');
       });
 
-      expect(screen.getByText('Your reference number:')).toBeInTheDocument();
+      it('renders the footer when the page is valid', () => {
+        const state = {
+          ...initialState,
+
+          myForms: {
+            ...initialState.myForms,
+
+            landlordQuote: {
+              ...getDefaultQuoteLandlordsState(),
+              policyNumber: '12345',
+              address: completedHouseQuote.address,
+
+              houseDetails: {
+                ...completedHouseQuote.houseDetails,
+                numberOfSelfContainedUnits: 'units1',
+                houseRentedTenants: 'tenants',
+                holidayHomeRented: false,
+                previousHouseClaims: false
+              }
+            },
+
+            sharedQuote: {
+              ...getDefaultQuoteSharedState(),
+              policyStartDate: moment()
+                .add(1, 'days')
+                .toLocaleString()
+            }
+          }
+        };
+
+        renderLandlord(state);
+
+        expectRendered('form-footer');
+      });
+
+      it('renders the reference number component', () => {
+        renderLandlord();
+
+        expectRendered('reference-number');
+      });
     });
   });
 });
