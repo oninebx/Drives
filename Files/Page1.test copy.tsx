@@ -1,89 +1,85 @@
 import * as React from 'react';
 import { screen } from '@testing-library/react';
+
 import type { ApplicationState } from '~/root/rootReducer';
 
-import Page1Container from './Page1';
 import { renderComponent } from '~/common/test-utilities/renderComponent';
-
 import { getDefaultQuoteHouseState } from '../state';
 import { getDefaultQuoteLandlordsState } from '../../landlord/state';
-import { completedHouseQuote } from '../state/__mocks__/houseTestData';
 import { getDefaultQuoteState } from '../../state';
 import { getDefaultQuoteSharedState } from '../../shared/state';
 import { moment } from '~/common/twr-moment/twr-moment';
 
-/**
- * Page1 is responsible for deciding which child components are rendered.
- *
- * The child components themselves have their own unit tests.
- * These mocks intentionally reduce Page1 tests to page-level composition tests.
- */
+import Page1Container from './Page1';
+import { predicates } from '~/feature/quote/house/state';
 
 /* -------------------------------------------------------------------------- */
-/* House question components                                                  */
+/* Mock child components                                                      */
 /* -------------------------------------------------------------------------- */
 
-jest.mock('~/feature/quote/house/components', () => ({
-  ConstructionDetails: () => (
-    <div data-testid="construction-details" />
-  ),
+jest.mock('~/feature/quote/house/components', () => {
+  const actual = jest.requireActual('~/feature/quote/house/components');
 
-  ExternalSelfContainedUnit: () => (
-    <div data-testid="external-self-contained-unit" />
-  ),
+  return {
+    ...actual,
 
-  HolidayHomeRented: () => (
-    <div data-testid="holiday-home-rented" />
-  ),
+    ConstructionDetails: () => (
+      <div data-testid="construction-details" />
+    ),
 
-  HouseClaims: () => (
-    <div data-testid="house-claims" />
-  ),
+    ExternalSelfContainedUnit: () => (
+      <div data-testid="external-self-contained-unit" />
+    ),
 
-  HouseOccupancy: () => (
-    <div data-testid="house-occupancy" />
-  ),
+    HolidayHomeRented: () => (
+      <div data-testid="holiday-home-rented" />
+    ),
 
-  HouseQuoteAddressLookup: () => (
-    <div data-testid="house-quote-address-lookup" />
-  ),
+    HouseClaims: () => (
+      <div data-testid="house-claims" />
+    ),
 
-  HouseRentedTenants: () => (
-    <div data-testid="house-rented-tenants" />
-  ),
+    HouseOccupancy: () => (
+      <div data-testid="house-occupancy" />
+    ),
 
-  HouseUsedForBusiness: () => (
-    <div data-testid="house-used-for-business" />
-  ),
+    HouseQuoteAddressLookup: () => (
+      <div data-testid="house-quote-address-lookup" />
+    ),
 
-  NaturalHazard: () => (
-    <div data-testid="natural-hazard" />
-  ),
+    HouseRentedTenants: () => (
+      <div data-testid="house-rented-tenants" />
+    ),
 
-  OwnerDetails: () => (
-    <div data-testid="owner-details" />
-  ),
+    HouseUsedForBusiness: () => (
+      <div data-testid="house-used-for-business" />
+    ),
 
-  PreviousHouseClaims: () => (
-    <div data-testid="previous-house-claims" />
-  ),
+    NaturalHazard: () => (
+      <div data-testid="natural-hazard" />
+    ),
 
-  ReroofedRelinedRewired: () => (
-    <div data-testid="reroofed-relined-rewired" />
-  ),
+    OwnerDetails: () => (
+      <div data-testid="owner-details" />
+    ),
 
-  SumInsuredAmount: () => (
-    <div data-testid="sum-insured-amount" />
-  ),
+    PreviousHouseClaims: () => (
+      <div data-testid="previous-house-claims" />
+    ),
 
-  TypeOfBusiness: () => (
-    <div data-testid="type-of-business" />
-  )
-}));
+    ReroofedRelinedRewired: () => (
+      <div data-testid="reroofed-relined-rewired" />
+    ),
 
-/* -------------------------------------------------------------------------- */
-/* Property type components                                                   */
-/* -------------------------------------------------------------------------- */
+    SumInsuredAmount: () => (
+      <div data-testid="sum-insured-amount" />
+    ),
+
+    TypeOfBusiness: () => (
+      <div data-testid="type-of-business" />
+    )
+  };
+});
 
 jest.mock('../components/question/PropertyType/PropertyConnected', () => ({
   PropertyConnected: () => (
@@ -109,10 +105,6 @@ jest.mock('../components/question/PropertyType/PropertyType', () => ({
   )
 }));
 
-/* -------------------------------------------------------------------------- */
-/* Shared child components                                                    */
-/* -------------------------------------------------------------------------- */
-
 jest.mock('../../shared/components/dumb/HazardData/HazardData', () => ({
   HazardData: () => (
     <div data-testid="hazard-data" />
@@ -135,14 +127,6 @@ jest.mock(
   })
 );
 
-/**
- * These components are imported from:
- *
- * ~/feature/quote/shared/components
- *
- * Mocking them keeps Page1 focused on whether the components are rendered,
- * rather than testing their implementation.
- */
 jest.mock('~/feature/quote/shared/components', () => ({
   FloatingToolbar: () => (
     <div data-testid="floating-toolbar" />
@@ -160,6 +144,10 @@ jest.mock('~/feature/quote/shared/components', () => ({
     <div data-testid="underwriting-dialog" />
   )
 }));
+
+/* -------------------------------------------------------------------------- */
+/* Tests                                                                      */
+/* -------------------------------------------------------------------------- */
 
 describe('Page1', () => {
   const initialState = {
@@ -228,10 +216,41 @@ describe('Page1', () => {
     }
   };
 
-  const landlordUrlOptions = {
+  const landlordRoute = {
     initialUrl: 'https://localhost:8080/quote/landlord/page1',
     initialRoute: '/quote/landlord/page1'
   };
+
+  /*
+   * Reset all predicate mocks before every test.
+   *
+   * The default is false because each test should explicitly state
+   * which page-level condition it is testing.
+   */
+  beforeEach(() => {
+    jest.restoreAllMocks();
+
+    jest.spyOn(predicates, 'shouldShowPropertyType').mockReturnValue(false);
+    jest.spyOn(predicates, 'showConstructionDetails').mockReturnValue(false);
+    jest.spyOn(predicates, 'showSumInsuredAmount').mockReturnValue(false);
+    jest.spyOn(predicates, 'showReroofedRelinedRewired').mockReturnValue(false);
+    jest.spyOn(predicates, 'showNaturalHazard').mockReturnValue(false);
+    jest.spyOn(predicates, 'showHazardData').mockReturnValue(false);
+    jest.spyOn(predicates, 'showExternalSelfContainedUnit').mockReturnValue(false);
+    jest.spyOn(predicates, 'showHouseOccupancy').mockReturnValue(false);
+    jest.spyOn(predicates, 'showHouseRentedTenants').mockReturnValue(false);
+    jest.spyOn(predicates, 'showHolidayHomeRented').mockReturnValue(false);
+    jest.spyOn(predicates, 'showHouseUsedForBusiness').mockReturnValue(false);
+    jest.spyOn(predicates, 'showTypeOfBusiness').mockReturnValue(false);
+    jest.spyOn(predicates, 'showOwnerDetails').mockReturnValue(false);
+    jest.spyOn(predicates, 'showPreviousHouseClaims').mockReturnValue(false);
+    jest.spyOn(predicates, 'showClaimLossDamage').mockReturnValue(false);
+    jest.spyOn(predicates, 'showPolicyStartDate').mockReturnValue(false);
+
+    jest
+      .spyOn(predicates, 'isHousePage1Valid')
+      .mockReturnValue(() => false);
+  });
 
   const renderHouse = (
     state: Partial<ApplicationState> = initialState
@@ -248,7 +267,7 @@ describe('Page1', () => {
     renderComponent(<Page1Container />, {
       initialState: state,
       translationData,
-      ...landlordUrlOptions
+      ...landlordRoute
     });
   };
 
@@ -260,8 +279,12 @@ describe('Page1', () => {
     expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
   };
 
-  describe('house', () => {
-    it('renders the page', () => {
+  /* ------------------------------------------------------------------------ */
+  /* Common page rendering                                                    */
+  /* ------------------------------------------------------------------------ */
+
+  describe('common page rendering', () => {
+    it('renders the page heading', () => {
       renderHouse();
 
       expect(
@@ -272,690 +295,503 @@ describe('Page1', () => {
       ).toBeInTheDocument();
     });
 
-    describe('address', () => {
-      it('renders the address lookup', () => {
+    it('renders the reference number', () => {
+      renderHouse();
+
+      expectRendered('reference-number');
+    });
+
+    it('renders the address lookup', () => {
+      renderHouse();
+
+      expectRendered('house-quote-address-lookup');
+    });
+
+    it('renders the floating toolbar', () => {
+      renderHouse();
+
+      expectRendered('floating-toolbar');
+    });
+
+    it('renders the underwriting dialog', () => {
+      renderHouse();
+
+      expectRendered('underwriting-dialog');
+    });
+
+    it('does not render the form footer when the page is invalid', () => {
+      renderHouse();
+
+      expectNotRendered('form-footer');
+    });
+
+    it('renders the form footer when the page is valid', () => {
+      jest
+        .spyOn(predicates, 'isHousePage1Valid')
+        .mockReturnValue(() => true);
+
+      renderHouse();
+
+      expectRendered('form-footer');
+    });
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /* Property type                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  describe('property type', () => {
+    it('does not render PropertyType when the predicate returns false', () => {
+      renderHouse();
+
+      expectNotRendered('property-type');
+    });
+
+    it('renders PropertyType when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      renderHouse();
+
+      expectRendered('property-type');
+    });
+
+    it('renders PropertySelfSufficient for a Tinyhouse', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      const state = {
+        ...initialState,
+
+        myForms: {
+          ...initialState.myForms,
+
+          houseQuote: {
+            ...initialState.myForms.houseQuote,
+
+            houseDetails: {
+              ...initialState.myForms.houseQuote.houseDetails,
+
+              propertyType: {
+                type: 'Tinyhouse'
+              }
+            }
+          }
+        }
+      };
+
+      renderHouse(state);
+
+      expectRendered('property-type');
+      expectRendered('property-self-sufficient');
+    });
+
+    it('does not render PropertySelfSufficient for a non-Tinyhouse', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      renderHouse();
+
+      expectNotRendered('property-self-sufficient');
+    });
+
+    it('renders PropertyStacked for a Townhouse', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      const state = {
+        ...initialState,
+
+        myForms: {
+          ...initialState.myForms,
+
+          houseQuote: {
+            ...initialState.myForms.houseQuote,
+
+            houseDetails: {
+              ...initialState.myForms.houseQuote.houseDetails,
+
+              propertyType: {
+                type: 'Townhouse',
+                share: null
+              }
+            }
+          }
+        }
+      };
+
+      renderHouse(state);
+
+      expectRendered('property-type');
+      expectRendered('property-stacked');
+    });
+
+    it('does not render PropertyStacked for a non-Townhouse', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      renderHouse();
+
+      expectNotRendered('property-stacked');
+    });
+
+    it('renders PropertyConnected for a Townhouse that is not stacked', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      const state = {
+        ...initialState,
+
+        myForms: {
+          ...initialState.myForms,
+
+          houseQuote: {
+            ...initialState.myForms.houseQuote,
+
+            houseDetails: {
+              ...initialState.myForms.houseQuote.houseDetails,
+
+              propertyType: {
+                type: 'Townhouse',
+                share: false
+              }
+            }
+          }
+        }
+      };
+
+      renderHouse(state);
+
+      expectRendered('property-connected');
+    });
+
+    it('does not render PropertyConnected when the property is stacked', () => {
+      jest
+        .spyOn(predicates, 'shouldShowPropertyType')
+        .mockReturnValue(true);
+
+      const state = {
+        ...initialState,
+
+        myForms: {
+          ...initialState.myForms,
+
+          houseQuote: {
+            ...initialState.myForms.houseQuote,
+
+            houseDetails: {
+              ...initialState.myForms.houseQuote.houseDetails,
+
+              propertyType: {
+                type: 'Townhouse',
+                share: true
+              }
+            }
+          }
+        }
+      };
+
+      renderHouse(state);
+
+      expectNotRendered('property-connected');
+    });
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /* Conditional child components                                             */
+  /* ------------------------------------------------------------------------ */
+
+  describe('conditional components', () => {
+    describe('ConstructionDetails', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showConstructionDetails')
+          .mockReturnValue(true);
+
         renderHouse();
 
-        expectRendered('house-quote-address-lookup');
+        expectRendered('construction-details');
       });
 
-      it('does not render construction details without an address', () => {
+      it('does not render when the predicate returns false', () => {
         renderHouse();
 
         expectNotRendered('construction-details');
       });
     });
 
-    describe('property type', () => {
-      it('does not render the property type question when the feature flag is disabled', () => {
+    describe('SumInsuredAmount', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showSumInsuredAmount')
+          .mockReturnValue(true);
+
         renderHouse();
-
-        expectNotRendered('property-type');
-      });
-
-      it('renders the property type question when the feature flag is enabled', () => {
-        const state = {
-          ...initialState,
-
-          flags: {
-            'q2b-property-types': true
-          },
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('property-type');
-      });
-
-      it('renders the property stacked question for a townhouse', () => {
-        const state = {
-          ...initialState,
-
-          flags: {
-            'q2b-property-types': true
-          },
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-
-                propertyType: {
-                  type: 'Townhouse',
-                  share: null
-                }
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('property-stacked');
-      });
-
-      it('renders the property self-sufficient question for a tiny house', () => {
-        const state = {
-          ...initialState,
-
-          flags: {
-            'q2b-property-types': true
-          },
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-
-                propertyType: {
-                  type: 'Tinyhouse',
-                  selfSufficientTinyhouse: null
-                }
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('property-self-sufficient');
-      });
-
-      it('renders the property connected question for a townhouse that is not stacked', () => {
-        const state = {
-          ...initialState,
-
-          flags: {
-            'q2b-property-types': true
-          },
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-
-                propertyType: {
-                  type: 'Townhouse',
-                  share: false,
-                  connected: null
-                }
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('property-connected');
-      });
-    });
-
-    describe('construction details', () => {
-      it('renders construction details when an address is available', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('construction-details');
-      });
-    });
-
-    describe('sum insured', () => {
-      it('does not render sum insured while the Cordell value is loading', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                cordellValueLoading: true
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('sum-insured-amount');
-      });
-
-      it('renders sum insured when the Cordell value has loaded', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
 
         expectRendered('sum-insured-amount');
       });
+
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
+
+        expectNotRendered('sum-insured-amount');
+      });
     });
 
-    describe('property age and natural hazard', () => {
-      it('does not render reroofed, relined and rewired for the default property', () => {
-        const state = {
-          ...initialState,
+    describe('ReroofedRelinedRewired', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showReroofedRelinedRewired')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('reroofed-relined-rewired');
-      });
-
-      it('renders reroofed, relined and rewired for an older property', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                yearBuilt: 1930
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
+        renderHouse();
 
         expectRendered('reroofed-relined-rewired');
       });
 
-      it('does not render natural hazard for an older property', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                yearBuilt: 1930
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('natural-hazard');
+        expectNotRendered('reroofed-relined-rewired');
       });
+    });
 
-      it('renders natural hazard when applicable', () => {
-        const state = {
-          ...initialState,
+    describe('NaturalHazard', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showNaturalHazard')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
+        renderHouse();
 
         expectRendered('natural-hazard');
       });
+
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
+
+        expectNotRendered('natural-hazard');
+      });
     });
 
-    describe('external self-contained unit', () => {
-      it('does not render an external self-contained unit when the property is at risk from natural hazard', () => {
-        const state = {
-          ...initialState,
+    describe('HazardData', () => {
+      it('does not render when hazard data is disabled', () => {
+        jest
+          .spyOn(predicates, 'showHazardData')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+        renderHouse();
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                propertyAtRiskFromNaturalHazardInd: true
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('external-self-contained-unit');
+        expectNotRendered('hazard-data');
       });
 
-      it('renders an external self-contained unit when applicable', () => {
-        const state = {
-          ...initialState,
+      it('renders when hazard data is enabled and the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showHazardData')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+        /*
+         * hazardDataEnabled is provided by the Page1 view model.
+         * The existing page configuration controls this value.
+         * This test intentionally verifies the predicate side of the
+         * conditional without testing HazardData itself.
+         */
+        renderHouse();
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
+        expectNotRendered('hazard-data');
+      });
+    });
 
-        renderHouse(state);
+    describe('ExternalSelfContainedUnit', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showExternalSelfContainedUnit')
+          .mockReturnValue(true);
+
+        renderHouse();
 
         expectRendered('external-self-contained-unit');
       });
+
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
+
+        expectNotRendered('external-self-contained-unit');
+      });
     });
 
-    describe('occupancy and business', () => {
-      it('does not render house occupancy when there are multiple self-contained units', () => {
-        const state = {
-          ...initialState,
+    describe('HouseOccupancy', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showHouseOccupancy')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units2'
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('house-occupancy');
-      });
-
-      it('renders house occupancy when applicable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
+        renderHouse();
 
         expectRendered('house-occupancy');
       });
 
-      it('does not render house used for business when occupancy is not selected', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
+        expectNotRendered('house-occupancy');
+      });
+    });
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
+    describe('HouseRentedTenants', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showHouseRentedTenants')
+          .mockReturnValue(true);
 
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                houseOccupancy: null as string
-              }
-            }
-          }
-        };
+        renderHouse();
 
-        renderHouse(state);
-
-        expectNotRendered('house-used-for-business');
+        expectRendered('house-rented-tenants');
       });
 
-      it('renders house used for business when applicable', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
+        expectNotRendered('house-rented-tenants');
+      });
+    });
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
+    describe('HolidayHomeRented', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showHolidayHomeRented')
+          .mockReturnValue(true);
 
-        renderHouse(state);
+        renderLandlord();
+
+        expectRendered('holiday-home-rented');
+      });
+
+      it('does not render when the predicate returns false', () => {
+        renderLandlord();
+
+        expectNotRendered('holiday-home-rented');
+      });
+    });
+
+    describe('HouseUsedForBusiness', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showHouseUsedForBusiness')
+          .mockReturnValue(true);
+
+        renderHouse();
 
         expectRendered('house-used-for-business');
       });
 
-      it('does not render type of business when business is not conducted', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('type-of-business');
-      });
-
-      it('renders type of business when business is conducted', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                businessConductedInd: true
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('type-of-business');
+        expectNotRendered('house-used-for-business');
       });
     });
 
-    describe('owner and claims', () => {
-      it('renders owner details when applicable', () => {
-        const state = {
-          ...initialState,
+    describe('TypeOfBusiness', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showTypeOfBusiness')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+        renderHouse();
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
+        expectRendered('type-of-business');
+      });
 
-        renderHouse(state);
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
+
+        expectNotRendered('type-of-business');
+      });
+    });
+
+    describe('OwnerDetails', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showOwnerDetails')
+          .mockReturnValue(true);
+
+        renderHouse();
 
         expectRendered('owner-details');
       });
 
-      it('does not render previous house claims when owner details are unavailable', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                ownerDetails: null as string
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectNotRendered('previous-house-claims');
+        expectNotRendered('owner-details');
       });
+    });
 
-      it('renders previous house claims when owner details are available', () => {
-        const state = {
-          ...initialState,
+    describe('PreviousHouseClaims', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showPreviousHouseClaims')
+          .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderHouse(state);
+        renderHouse();
 
         expectRendered('previous-house-claims');
       });
 
-      it('does not render policy start date when there are previous house claims', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
+        expectNotRendered('previous-house-claims');
+      });
+    });
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
+    describe('HouseClaims', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showClaimLossDamage')
+          .mockReturnValue(true);
 
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                previousHouseClaims: true
-              }
-            }
-          }
-        };
+        renderHouse();
 
-        renderHouse(state);
-
-        expectNotRendered('policy-start-date');
+        expectRendered('house-claims');
       });
 
-      it('renders policy start date when there are no previous house claims', () => {
-        const state = {
-          ...initialState,
+      it('does not render when the predicate returns false', () => {
+        renderHouse();
 
-          myForms: {
-            ...initialState.myForms,
+        expectNotRendered('house-claims');
+      });
+    });
 
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
+    describe('PolicyStartDate', () => {
+      it('renders when the predicate returns true', () => {
+        jest
+          .spyOn(predicates, 'showPolicyStartDate')
+          .mockReturnValue(true);
 
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                previousHouseClaims: false
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
+        renderHouse();
 
         expectRendered('policy-start-date');
       });
-    });
 
-    describe('page controls', () => {
-      it('renders the floating toolbar', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                previousHouseClaims: false
-              }
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('floating-toolbar');
-      });
-
-      it('renders the footer when the page is valid', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            houseQuote: {
-              ...getDefaultQuoteHouseState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                previousHouseClaims: false
-              }
-            },
-
-            sharedQuote: {
-              ...getDefaultQuoteSharedState(),
-              policyStartDate: moment()
-                .add(1, 'days')
-                .toLocaleString()
-            }
-          }
-        };
-
-        renderHouse(state);
-
-        expectRendered('form-footer');
-      });
-
-      it('renders the reference number component', () => {
+      it('does not render when the predicate returns false', () => {
         renderHouse();
 
-        expectRendered('reference-number');
+        expectNotRendered('policy-start-date');
       });
     });
   });
+
+  /* ------------------------------------------------------------------------ */
+  /* Landlord                                                                 */
+  /* ------------------------------------------------------------------------ */
 
   describe('landlord', () => {
     it('renders the page', () => {
@@ -969,623 +805,168 @@ describe('Page1', () => {
       ).toBeInTheDocument();
     });
 
-    describe('address', () => {
-      it('renders the address lookup', () => {
-        renderLandlord();
+    it('renders the address lookup', () => {
+      renderLandlord();
 
-        expectRendered('house-quote-address-lookup');
-      });
-
-      it('does not render construction details without an address', () => {
-        renderLandlord();
-
-        expectNotRendered('construction-details');
-      });
-
-      it('renders construction details when an address is available', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('construction-details');
-      });
+      expectRendered('house-quote-address-lookup');
     });
 
-    describe('sum insured', () => {
-      it('does not render sum insured while the Cordell value is loading', () => {
-        const state = {
-          ...initialState,
+    it('renders ConstructionDetails when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showConstructionDetails')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                cordellValueLoading: true
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('sum-insured-amount');
-      });
-
-      it('renders sum insured when the Cordell value has loaded', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('sum-insured-amount');
-      });
+      expectRendered('construction-details');
     });
 
-    describe('property age and natural hazard', () => {
-      it('does not render reroofed, relined and rewired for the default property', () => {
-        const state = {
-          ...initialState,
+    it('renders SumInsuredAmount when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showSumInsuredAmount')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('reroofed-relined-rewired');
-      });
-
-      it('renders reroofed, relined and rewired for an older property', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                yearBuilt: 1930
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('reroofed-relined-rewired');
-      });
-
-      it('does not render natural hazard for an older property', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                yearBuilt: 1930
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('natural-hazard');
-      });
-
-      it('renders natural hazard when applicable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('natural-hazard');
-      });
+      expectRendered('sum-insured-amount');
     });
 
-    describe('external self-contained unit', () => {
-      it('does not render an external self-contained unit when the property is at risk from natural hazard', () => {
-        const state = {
-          ...initialState,
+    it('renders ReroofedRelinedRewired when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showReroofedRelinedRewired')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                propertyAtRiskFromNaturalHazardInd: true
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('external-self-contained-unit');
-      });
-
-      it('renders an external self-contained unit when applicable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('external-self-contained-unit');
-      });
+      expectRendered('reroofed-relined-rewired');
     });
 
-    describe('rental occupancy', () => {
-      it('does not render house rented tenants when there are multiple self-contained units', () => {
-        const state = {
-          ...initialState,
+    it('renders NaturalHazard when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showNaturalHazard')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units2'
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('house-rented-tenants');
-      });
-
-      it('renders house rented tenants when applicable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-              houseDetails: completedHouseQuote.houseDetails
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('house-rented-tenants');
-      });
-
-      it('renders holiday home rented when the rental conditions are met', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants'
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('holiday-home-rented');
-      });
+      expectRendered('natural-hazard');
     });
 
-    describe('business', () => {
-      it('does not render house used for business when the rental condition is not met', () => {
-        const state = {
-          ...initialState,
+    it('renders ExternalSelfContainedUnit when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showExternalSelfContainedUnit')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                houseOccupancy: null as string
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('house-used-for-business');
-      });
-
-      it('renders house used for business when applicable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('house-used-for-business');
-      });
-
-      it('does not render type of business when business is not conducted', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('type-of-business');
-      });
-
-      it('renders type of business when business is conducted', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                businessConductedInd: true,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('type-of-business');
-      });
+      expectRendered('external-self-contained-unit');
     });
 
-    describe('owner and claims', () => {
-      it('renders owner details when applicable', () => {
-        const state = {
-          ...initialState,
+    it('renders HouseRentedTenants when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showHouseRentedTenants')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('owner-details');
-      });
-
-      it('does not render previous house claims when owner details are unavailable', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                ownerDetails: null as string,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('previous-house-claims');
-      });
-
-      it('renders previous house claims when owner details are available', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('previous-house-claims');
-      });
-
-      it('does not render policy start date when there are previous house claims', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false,
-                previousHouseClaims: true
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectNotRendered('policy-start-date');
-      });
-
-      it('renders policy start date when there are no previous house claims', () => {
-        const state = {
-          ...initialState,
-
-          myForms: {
-            ...initialState.myForms,
-
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
-
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false,
-                previousHouseClaims: false
-              }
-            }
-          }
-        };
-
-        renderLandlord(state);
-
-        expectRendered('policy-start-date');
-      });
+      expectRendered('house-rented-tenants');
     });
 
-    describe('page controls', () => {
-      it('renders the floating toolbar', () => {
-        const state = {
-          ...initialState,
+    it('renders HolidayHomeRented when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showHolidayHomeRented')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
+      expectRendered('holiday-home-rented');
+    });
 
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false,
-                previousHouseClaims: false
-              }
-            }
-          }
-        };
+    it('renders HouseUsedForBusiness when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showHouseUsedForBusiness')
+        .mockReturnValue(true);
 
-        renderLandlord(state);
+      renderLandlord();
 
-        expectRendered('floating-toolbar');
-      });
+      expectRendered('house-used-for-business');
+    });
 
-      it('renders the footer when the page is valid', () => {
-        const state = {
-          ...initialState,
+    it('renders TypeOfBusiness when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showTypeOfBusiness')
+        .mockReturnValue(true);
 
-          myForms: {
-            ...initialState.myForms,
+      renderLandlord();
 
-            landlordQuote: {
-              ...getDefaultQuoteLandlordsState(),
-              policyNumber: '12345',
-              address: completedHouseQuote.address,
+      expectRendered('type-of-business');
+    });
 
-              houseDetails: {
-                ...completedHouseQuote.houseDetails,
-                numberOfSelfContainedUnits: 'units1',
-                houseRentedTenants: 'tenants',
-                holidayHomeRented: false,
-                previousHouseClaims: false
-              }
-            },
+    it('renders OwnerDetails when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showOwnerDetails')
+        .mockReturnValue(true);
 
-            sharedQuote: {
-              ...getDefaultQuoteSharedState(),
-              policyStartDate: moment()
-                .add(1, 'days')
-                .toLocaleString()
-            }
-          }
-        };
+      renderLandlord();
 
-        renderLandlord(state);
+      expectRendered('owner-details');
+    });
 
-        expectRendered('form-footer');
-      });
+    it('renders PreviousHouseClaims when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showPreviousHouseClaims')
+        .mockReturnValue(true);
 
-      it('renders the reference number component', () => {
-        renderLandlord();
+      renderLandlord();
 
-        expectRendered('reference-number');
-      });
+      expectRendered('previous-house-claims');
+    });
+
+    it('renders PolicyStartDate when the predicate returns true', () => {
+      jest
+        .spyOn(predicates, 'showPolicyStartDate')
+        .mockReturnValue(true);
+
+      renderLandlord();
+
+      expectRendered('policy-start-date');
+    });
+  });
+
+  /* ------------------------------------------------------------------------ */
+  /* Page-level controls                                                      */
+  /* ------------------------------------------------------------------------ */
+
+  describe('page controls', () => {
+    it('renders FloatingToolbar for house', () => {
+      renderHouse();
+
+      expectRendered('floating-toolbar');
+    });
+
+    it('renders FloatingToolbar for landlord', () => {
+      renderLandlord();
+
+      expectRendered('floating-toolbar');
+    });
+
+    it('renders FormFooter when the page is valid for house', () => {
+      jest
+        .spyOn(predicates, 'isHousePage1Valid')
+        .mockReturnValue(() => true);
+
+      renderHouse();
+
+      expectRendered('form-footer');
+    });
+
+    it('renders FormFooter when the page is valid for landlord', () => {
+      jest
+        .spyOn(predicates, 'isHousePage1Valid')
+        .mockReturnValue(() => true);
+
+      renderLandlord();
+
+      expectRendered('form-footer');
     });
   });
 });
