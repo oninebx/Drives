@@ -1,0 +1,43 @@
+<Errors
+        model={`${modelPath}.driver.dateOfBirth`}
+        messages={{
+          minDateError: config.minDateError,
+          maxDateError: config.maxDateError,
+          invalidDate: config.invalidDate
+        }}
+        show={true}
+        component={({ fieldValue: { errors }, children: message }) => invalidDateErrorMessage(errors, message)}
+      />
+
+const invalidDateErrorMessage = (errors: any, message: any) => {
+    if (errors.invalidDate) {
+      return (
+        <div className="error-container">
+          <span>{message}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="error-container">
+        <span>{message}</span>
+      </div>
+    );
+  };
+
+export class Errors extends React.Component<ErrorsProps, {}> {
+
+}
+
+component?: string | React.StatelessComponent<ErrorsProps & CustomComponentProps> | React.ComponentClass<ErrorsProps & CustomComponentProps>;
+
+export interface ErrorsProps {
+  model: string | ModelGetterFn;
+  messages?: ErrorsComponentMessages;
+  show?: FieldState | FieldStatePredicate | boolean | string;
+  wrapper?: string | React.StatelessComponent<ErrorsProps & WrapperProps> | React.ComponentClass<ErrorsProps & WrapperProps>;
+  component?: string | React.StatelessComponent<ErrorsProps & CustomComponentProps> | React.ComponentClass<ErrorsProps & CustomComponentProps>;
+  className?: string;
+}
+interface CustomComponentProps extends WrapperProps {
+  children: any;
+}
