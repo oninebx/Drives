@@ -1,0 +1,33 @@
+Background
+
+The current frontend unit test suite contains a number of page-level tests that repeatedly render the entire page through renderComponent. This results in unnecessary rendering overhead and makes the tests slower and more tightly coupled to child component implementations.
+
+Goal
+
+Refactor the affected page-level unit tests to reduce unnecessary full-page rendering while maintaining the existing test coverage and validation of page-level display logic.
+
+Scope
+
+Identify page-level tests with repeated or unnecessary renderComponent calls.
+Mock child components where appropriate to isolate page-level composition logic.
+Keep page tests focused on whether the correct child components are rendered based on predicates and page state.
+Mock predicates where they already have dedicated unit tests, avoiding unnecessary complex state setup.
+Preserve existing House/Landlord test structure and relevant rendering scenarios.
+Maintain the existing level of test coverage while improving test execution performance.
+Keep the number and intent of existing test cases broadly consistent where practical.
+
+Out of Scope
+
+Refactoring predicates, ViewModels, or state factories.
+Redesigning the overall test architecture.
+Adding comprehensive interaction tests.
+Achieving 100% test coverage.
+Solving all existing unit test performance or maintainability issues in this iteration.
+
+Acceptance Criteria
+
+Page-level tests no longer unnecessarily render the full component tree for scenarios that can be covered through mocked child components.
+Page tests verify page-level composition/display behaviour rather than child component implementation details.
+Existing relevant test scenarios and coverage are preserved.
+The refactored tests have improved execution time compared with the original implementation.
+Tests remain readable, maintainable, and consistent with the existing project test structure.
