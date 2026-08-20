@@ -1,129 +1,293 @@
 import { screen } from '@testing-library/react';
 import * as React from 'react';
 import { renderComponent } from '~/common/test-utilities/renderComponent';
+import * as carState from '~/feature/claim/car/state';
+import * as sharedState from '~/feature/claim/shared/state';
 import type { ApplicationState } from '~/root/rootReducer';
 import { getDefaultClaimCarState } from '../state';
 import Page1 from './Page1';
 
-/**
- * Mock child components.
- *
- * Page1 is responsible for deciding whether these components
- * should be rendered. Their own implementation is tested separately.
- */
+jest.mock('~/feature/claim/car/state', () => {
+  const actual = jest.requireActual('~/feature/claim/car/state');
 
-jest.mock('~/feature/claim/car/components', () => ({
-  AuthorityReportFire: () => <div data-testid="AuthorityReportFire" />,
-  AuthorityReportPolice: () => <div data-testid="AuthorityReportPolice" />,
-  OtherDrivers: () => <div data-testid="OtherDrivers" />
-}));
+  return {
+    ...actual,
+    selectors: {
+      ...actual.selectors,
+      getClaim: jest.fn(),
+      getBaseState: jest.fn(),
+      isCauseOfLossTheft: jest.fn(),
+      showYourDriverQuestions: jest.fn(),
+      showOtherPersonDetailsQuestions: jest.fn(),
+      showPoliceAttendQuestions: jest.fn(),
+      showFireAuthorityReport: jest.fn(),
+      showAuthorityReportQuestions: jest.fn(),
+      showOtherDriversQuestions: jest.fn(),
+      isOtherDriverInvolved: jest.fn(),
+      showWitnessQuestions: jest.fn(),
+      getCarDiscoveredMissingDate: jest.fn(),
+      getLossDate: jest.fn(),
+      getVehicleMakes: jest.fn(),
+      getEventLocationHeaderLabel: jest.fn(),
+      getEventLocationLabel: jest.fn()
+    }
+  };
+});
 
-jest.mock('~/feature/claim/car/components/dumb', () => ({
-  DriverDetails: () => <div data-testid="DriverDetails" />,
-  OtherPeopleDetail: () => <div data-testid="OtherPeopleDetail" />,
-  PoliceAttend: () => <div data-testid="PoliceAttend" />,
-  TheftSection1: () => <div data-testid="TheftSection1" />,
-  TheftSection2: () => <div data-testid="TheftSection2" />
-}));
+jest.mock('~/feature/claim/shared/state', () => {
+  const actual = jest.requireActual('~/feature/claim/shared/state');
 
-jest.mock('~/feature/claim/shared/components', () => ({
-  EventDescription: () => <div data-testid="EventDescription" />,
-  EventLocation: () => <div data-testid="EventLocation" />,
-  FloatingToolbar: () => <div data-testid="FloatingToolbar" />,
-  FormFooter: () => <div data-testid="FormFooter" />,
-  PreStepsSummary: ({
-    causeOfLoss,
-    secondaryCauseOfLoss,
-    lossDateTime
-  }: {
-    causeOfLoss: string;
-    secondaryCauseOfLoss: string | null;
-    lossDateTime: Date;
-  }) => (
-    <div data-testid="PreStepsSummary">
-      <span>
-        {lossDateTime.toLocaleDateString('en-NZ')} at{' '}
-        {lossDateTime.toLocaleTimeString('en-NZ', {
-          hour: 'numeric',
-          minute: '2-digit'
-        })}
-      </span>
-      <span>
-        {`preStepsSummary.causeLabels.${causeOfLoss}${
-          secondaryCauseOfLoss
-            ? secondaryCauseOfLoss.charAt(0).toUpperCase() + secondaryCauseOfLoss.slice(1)
-            : ''
-        }`}
-      </span>
-    </div>
-  ),
-  WitnessSection: () => <div data-testid="WitnessSection" />
-}));
+  return {
+    ...actual,
+    selectors: {
+      ...actual.selectors,
+      getClaimType: jest.fn(),
+      getPolicyDetails: jest.fn(),
+      getPolicyDescription: jest.fn(),
+      getBackToPreStepsPrevented: jest.fn()
+    }
+  };
+});
 
-jest.mock('~/feature/claim/shared/components/dumb', () => ({
-  ClaimNumber: ({ claimNumber }: { claimNumber: string }) => (
-    <div data-testid="ClaimNumber">Your claim number: {claimNumber}</div>
-  )
-}));
+jest.mock('~/feature/claim/car/components', () => {
+  const actual = jest.requireActual('~/feature/claim/car/components');
 
-/**
- * Form itself is not part of Page1's responsibility.
- * Mock it so Page1 tests only exercise Page1 rendering logic.
- */
-jest.mock('react-redux-form', () => ({
-  Form: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-}));
+  return {
+    ...actual,
+    AuthorityReportFire: () => (
+      <div data-testid="AuthorityReportFire" />
+    ),
+    AuthorityReportPolice: () => (
+      <div data-testid="AuthorityReportPolice" />
+    ),
+    OtherDrivers: () => (
+      <div data-testid="OtherDrivers" />
+    )
+  };
+});
+
+jest.mock('~/feature/claim/car/components/dumb', () => {
+  const actual = jest.requireActual(
+    '~/feature/claim/car/components/dumb'
+  );
+
+  return {
+    ...actual,
+    DriverDetails: () => (
+      <div data-testid="DriverDetails" />
+    ),
+    OtherPeopleDetail: () => (
+      <div data-testid="OtherPeopleDetail" />
+    ),
+    PoliceAttend: () => (
+      <div data-testid="PoliceAttend" />
+    ),
+    TheftSection1: () => (
+      <div data-testid="TheftSection1" />
+    ),
+    TheftSection2: () => (
+      <div data-testid="TheftSection2" />
+    )
+  };
+});
+
+jest.mock('~/feature/claim/shared/components', () => {
+  const actual = jest.requireActual(
+    '~/feature/claim/shared/components'
+  );
+
+  return {
+    ...actual,
+    EventDescription: () => (
+      <div data-testid="EventDescription" />
+    ),
+    EventLocation: () => (
+      <div data-testid="EventLocation" />
+    ),
+    FloatingToolbar: () => (
+      <div data-testid="FloatingToolbar" />
+    ),
+    FormFooter: () => (
+      <div data-testid="FormFooter" />
+    ),
+    WitnessSection: () => (
+      <div data-testid="WitnessSection" />
+    )
+  };
+});
 
 describe('Page1', () => {
+  const claim = {
+    claimNumber: 'ABC123',
+    lossDate: new Date('2025-01-15T02:45:00.000Z'),
+    causeOfLoss: 'accidentWhileDriving',
+    secondaryCauseOfLoss: 'animal'
+  } as ReturnType<typeof carState.selectors.getClaim>;
+
+  const baseState = {
+    eventLocationAddress: undefined
+  } as ReturnType<typeof carState.selectors.getBaseState>;
+
   const initialState = {
     myForms: {
       carClaim: {
-        ...getDefaultClaimCarState(),
-        eisClaim: {
-          claimNumber: 'ABC123',
-          lossDate: new Date('2025-01-15T02:45:00.000Z'),
-          causeOfLoss: 'accidentWhileDriving',
-          secondaryCauseOfLoss: 'animal'
-        },
-        policeAttendDetails: {
-          policeAttended: false,
-          anyoneCharged: null,
-          testedForAlcoholOrDrug: null
-        }
+        ...getDefaultClaimCarState()
       }
     }
   } as Partial<ApplicationState>;
 
-  const renderPage = (state: Partial<ApplicationState> = initialState) => {
+  const renderPage = (
+    state: Partial<ApplicationState> = initialState
+  ) => {
     renderComponent(<Page1 />, {
       initialState: state
     });
   };
 
-  describe('basic page rendering', () => {
+  const expectRendered = (testId: string) => {
+    expect(screen.getByTestId(testId)).toBeInTheDocument();
+  };
+
+  const expectNotRendered = (testId: string) => {
+    expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+  };
+
+  const expectHeadingRendered = (
+    name: string,
+    level: 2 | 5 = 2
+  ) => {
+    expect(
+      screen.getByRole('heading', {
+        level,
+        name
+      })
+    ).toBeInTheDocument();
+  };
+
+  const expectHeadingNotRendered = (
+    name: string,
+    level: 2 | 5 = 2
+  ) => {
+    expect(
+      screen.queryByRole('heading', {
+        level,
+        name
+      })
+    ).not.toBeInTheDocument();
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    jest
+      .mocked(carState.selectors.getClaim)
+      .mockReturnValue(claim);
+
+    jest
+      .mocked(carState.selectors.getBaseState)
+      .mockReturnValue(baseState);
+
+    jest
+      .mocked(carState.selectors.isCauseOfLossTheft)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showYourDriverQuestions)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showPoliceAttendQuestions)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showFireAuthorityReport)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showAuthorityReportQuestions)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showOtherDriversQuestions)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.isOtherDriverInvolved)
+      .mockReturnValue(false);
+
+    jest
+      .mocked(carState.selectors.showWitnessQuestions)
+      .mockReturnValue(true);
+
+    jest
+      .mocked(carState.selectors.getCarDiscoveredMissingDate)
+      .mockReturnValue(undefined);
+
+    jest
+      .mocked(carState.selectors.getLossDate)
+      .mockReturnValue(claim.lossDate);
+
+    jest
+      .mocked(carState.selectors.getVehicleMakes)
+      .mockReturnValue([]);
+
+    jest
+      .mocked(carState.selectors.getEventLocationHeaderLabel)
+      .mockReturnValue('accidentInformation');
+
+    jest
+      .mocked(carState.selectors.getEventLocationLabel)
+      .mockReturnValue(
+        'accidentWhileDriving.search'
+      );
+
+    jest
+      .mocked(sharedState.selectors.getClaimType)
+      .mockReturnValue('car');
+
+    jest
+      .mocked(sharedState.selectors.getPolicyDetails)
+      .mockReturnValue(undefined);
+
+    jest
+      .mocked(sharedState.selectors.getPolicyDescription)
+      .mockReturnValue(undefined);
+
+    jest
+      .mocked(sharedState.selectors.getBackToPreStepsPrevented)
+      .mockReturnValue(false);
+  });
+
+  describe('basic rendering', () => {
     it('should render the claim number and status', () => {
       renderPage();
 
-      expect(screen.getByText('Your claim number: ABC123')).toBeInTheDocument();
-      expect(screen.getByText('Not submitted')).toBeInTheDocument();
+      expect(
+        screen.getByText('Your claim number: ABC123')
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText('Not submitted')
+      ).toBeInTheDocument();
     });
 
     it('should render the page heading', () => {
       renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.page1'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered('headings.page1');
     });
 
-    it('should render the pre steps summary', () => {
+    it('should render the pre steps summary with the correct details', () => {
       renderPage();
 
-      expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
-      expect(screen.getByText('15/01/2025 at 3:45 pm')).toBeInTheDocument();
+      expect(
+        screen.getByText('15/01/2025 at 3:45 pm')
+      ).toBeInTheDocument();
+
       expect(
         screen.getByText(
           'preStepsSummary.causeLabels.accidentWhileDrivingAnimal'
@@ -131,556 +295,338 @@ describe('Page1', () => {
       ).toBeInTheDocument();
     });
 
-    it('should render event location', () => {
+    it('should render the event location section', () => {
       renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.accidentInformation'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.accidentInformation'
+      );
 
-      expect(
-        screen.getByTestId('EventLocation')
-      ).toBeInTheDocument();
+      expectRendered('EventLocation');
     });
 
-    it('should render event description', () => {
+    it('should render the event description', () => {
       renderPage();
 
-      expect(
-        screen.getByTestId('EventDescription')
-      ).toBeInTheDocument();
+      expectRendered('EventDescription');
     });
 
     it('should render the form footer', () => {
       renderPage();
 
-      expect(
-        screen.getByTestId('FormFooter')
-      ).toBeInTheDocument();
+      expectRendered('FormFooter');
     });
 
     it('should render the floating toolbar', () => {
       renderPage();
 
-      expect(
-        screen.getByTestId('FloatingToolbar')
-      ).toBeInTheDocument();
+      expectRendered('FloatingToolbar');
     });
   });
 
   describe('theft section', () => {
-    it('should not render the theft section if COL is not theft', () => {
+    it('should not render the theft section when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.isCauseOfLossTheft)
+        .mockReturnValue(false);
+
       renderPage();
 
-      expect(
-        screen.queryByTestId('TheftSection1')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('TheftSection2')
-      ).not.toBeInTheDocument();
+      expectNotRendered('TheftSection1');
+      expectNotRendered('TheftSection2');
     });
 
-    it('should render both theft sections if COL is theft', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'stolen',
-              secondaryCauseOfLoss: null
-            }
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render the theft sections when the selector returns true', () => {
+      jest
+        .mocked(carState.selectors.isCauseOfLossTheft)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      renderPage();
 
-      expect(
-        screen.getByTestId('TheftSection1')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('TheftSection2')
-      ).toBeInTheDocument();
+      expectRendered('TheftSection1');
+      expectRendered('TheftSection2');
     });
   });
 
   describe('your driver section', () => {
-    it('should not render the your driver section if conditions are not met', () => {
+    it('should not render the your driver section when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.showYourDriverQuestions)
+        .mockReturnValue(false);
+
       renderPage();
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.yourDriver'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.yourDriver'
+      );
 
-      expect(
-        screen.queryByTestId('DriverDetails')
-      ).not.toBeInTheDocument();
+      expectNotRendered('DriverDetails');
     });
 
-    it('should render the your driver section when conditions are met', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'accidentWhileDriving',
-              secondaryCauseOfLoss: 'multipleVehicles'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        },
-        common: {
-          customer: {
-            firstName: 'Bob',
-            lastName: 'Smith',
-            emails: [{ emailAddress: 'bobSmith@gmail.com' }],
-            phones: [{ phoneNumber: '000123456789' }]
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render the your driver section when the selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showYourDriverQuestions)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.yourDriver'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.yourDriver'
+      );
 
-      expect(
-        screen.getByTestId('DriverDetails')
-      ).toBeInTheDocument();
+      expectRendered('DriverDetails');
     });
   });
 
   describe('other driver section', () => {
-    it('should not render the other driver section if conditions are not met', () => {
+    it('should not render the other driver section when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.showOtherDriversQuestions)
+        .mockReturnValue(false);
+
       renderPage();
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.otherDriverDetails'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.otherDriverDetails'
+      );
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.driverDetails'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.driverDetails'
+      );
 
-      expect(
-        screen.queryByTestId('OtherDrivers')
-      ).not.toBeInTheDocument();
+      expectNotRendered('OtherDrivers');
     });
 
     it('should render otherDriverDetails when another driver is involved', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'accidentWhileDriving',
-              secondaryCauseOfLoss: 'multipleVehicles'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        },
-        common: {
-          customer: {
-            firstName: 'Bob',
-            lastName: 'Smith',
-            emails: [{ emailAddress: 'bobSmith@gmail.com' }],
-            phones: [{ phoneNumber: '000123456789' }]
-          }
-        }
-      } as Partial<ApplicationState>;
+      jest
+        .mocked(carState.selectors.showOtherDriversQuestions)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      jest
+        .mocked(carState.selectors.isOtherDriverInvolved)
+        .mockReturnValue(true);
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.otherDriverDetails'
-        })
-      ).toBeInTheDocument();
+      renderPage();
 
-      expect(
-        screen.getByTestId('OtherDrivers')
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.otherDriverDetails'
+      );
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.driverDetails'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.driverDetails'
+      );
+
+      expectRendered('OtherDrivers');
     });
 
     it('should render driverDetails when another driver is not involved', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'accidentWhileDriving',
-              secondaryCauseOfLoss: 'hitByAnotherVehicle'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        },
-        common: {
-          customer: {
-            firstName: 'Bob',
-            lastName: 'Smith',
-            emails: [{ emailAddress: 'bobSmith@gmail.com' }],
-            phones: [{ phoneNumber: '000123456789' }]
-          }
-        }
-      } as Partial<ApplicationState>;
+      jest
+        .mocked(carState.selectors.showOtherDriversQuestions)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      jest
+        .mocked(carState.selectors.isOtherDriverInvolved)
+        .mockReturnValue(false);
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.driverDetails'
-        })
-      ).toBeInTheDocument();
+      renderPage();
 
-      expect(
-        screen.getByTestId('OtherDrivers')
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.driverDetails'
+      );
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.otherDriverDetails'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.otherDriverDetails'
+      );
+
+      expectRendered('OtherDrivers');
     });
   });
 
   describe('other person details', () => {
-    it('should not render other person details when conditions are not met', () => {
+    it('should not render other person details when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+        .mockReturnValue(false);
+
       renderPage();
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.otherPeopleDetails'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.otherPeopleDetails'
+      );
 
-      expect(
-        screen.queryByTestId('OtherPeopleDetail')
-      ).not.toBeInTheDocument();
+      expectNotRendered('OtherPeopleDetail');
     });
 
-    it('should render other person details when conditions are met', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'damagedWhileParked',
-              secondaryCauseOfLoss: 'other'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render other person details when the selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.otherPeopleDetails'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.otherPeopleDetails'
+      );
 
-      expect(
-        screen.getByTestId('OtherPeopleDetail')
-      ).toBeInTheDocument();
+      expectRendered('OtherPeopleDetail');
     });
   });
 
   describe('fire authority report', () => {
-    it('should not render fire authority report when conditions are not met', () => {
+    it('should not render the fire authority report when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.showFireAuthorityReport)
+        .mockReturnValue(false);
+
       renderPage();
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.fire'
-        })
-      ).not.toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.fire'
+      );
 
-      expect(
-        screen.queryByTestId('AuthorityReportFire')
-      ).not.toBeInTheDocument();
+      expectNotRendered('AuthorityReportFire');
     });
 
-    it('should render fire authority report when conditions are met', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'damagedWhileParked',
-              secondaryCauseOfLoss: 'fire'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render the fire authority report when the selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showFireAuthorityReport)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.fire'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.fire'
+      );
 
-      expect(
-        screen.getByTestId('AuthorityReportFire')
-      ).toBeInTheDocument();
+      expectRendered('AuthorityReportFire');
     });
   });
 
-  describe('police sections', () => {
-    it('should not render police section when neither police section is required', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'naturalDisaster',
-              secondaryCauseOfLoss: 'weather'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        }
-      } as Partial<ApplicationState>;
+  describe('police section', () => {
+    it('should not render the police section when neither selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .mockReturnValue(false);
 
-      renderPage(newState);
+      jest
+        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .mockReturnValue(false);
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.police'
-        })
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('PoliceAttend')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('AuthorityReportPolice')
-      ).not.toBeInTheDocument();
-    });
-
-    it('should render authority report police without police attend', () => {
       renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.police'
-        })
-      ).toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.police'
+      );
 
-      expect(
-        screen.getByTestId('AuthorityReportPolice')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('PoliceAttend')
-      ).not.toBeInTheDocument();
+      expectNotRendered('PoliceAttend');
+      expectNotRendered('AuthorityReportPolice');
     });
 
-    it('should render police attend without authority report police', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'accidentWhileDriving',
-              secondaryCauseOfLoss: 'multipleVehicles'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        },
-        common: {
-          customer: {
-            firstName: 'Bob',
-            lastName: 'Smith',
-            emails: [{ emailAddress: 'bobSmith@gmail.com' }],
-            phones: [{ phoneNumber: '000123456789' }]
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render authority report police when the authority report selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .mockReturnValue(false);
 
-      renderPage(newState);
+      jest
+        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .mockReturnValue(true);
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.police'
-        })
-      ).toBeInTheDocument();
+      renderPage();
 
-      expect(
-        screen.getByTestId('PoliceAttend')
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.police'
+      );
 
-      expect(
-        screen.queryByTestId('AuthorityReportPolice')
-      ).not.toBeInTheDocument();
+      expectNotRendered('PoliceAttend');
+      expectRendered('AuthorityReportPolice');
     });
 
-    it('should render both police attend and authority report police', () => {
-      /**
-       * This combination explicitly covers:
-       *
-       * showPoliceAttend === true
-       * showAuthorityReport === true
-       */
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'accidentWhileDriving',
-              secondaryCauseOfLoss: 'multipleVehicles'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        },
-        common: {
-          customer: {
-            firstName: 'Bob',
-            lastName: 'Smith',
-            emails: [{ emailAddress: 'bobSmith@gmail.com' }],
-            phones: [{ phoneNumber: '000123456789' }]
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should render police attend when the police attend selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .mockReturnValue(true);
 
-      renderPage(newState);
+      jest
+        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .mockReturnValue(false);
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.police'
-        })
-      ).toBeInTheDocument();
+      renderPage();
 
-      expect(
-        screen.getByTestId('PoliceAttend')
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'headings.police'
+      );
 
-      expect(
-        screen.getByTestId('AuthorityReportPolice')
-      ).toBeInTheDocument();
+      expectRendered('PoliceAttend');
+      expectNotRendered('AuthorityReportPolice');
+    });
+
+    it('should render both police sections when both selectors return true', () => {
+      jest
+        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .mockReturnValue(true);
+
+      jest
+        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .mockReturnValue(true);
+
+      renderPage();
+
+      expectHeadingRendered(
+        'headings.police'
+      );
+
+      expectRendered('PoliceAttend');
+      expectRendered('AuthorityReportPolice');
     });
   });
 
   describe('witness section', () => {
-    it('should not render witness questions when conditions are not met', () => {
-      const newState = {
-        ...initialState,
-        myForms: {
-          carClaim: {
-            ...initialState.myForms!.carClaim,
-            eisClaim: {
-              ...initialState.myForms!.carClaim!.eisClaim,
-              causeOfLoss: 'naturalDisaster',
-              secondaryCauseOfLoss: 'weather'
-            }
-          },
-          sharedClaim: {
-            claimType: 'car'
-          }
-        }
-      } as Partial<ApplicationState>;
+    it('should not render the witness section when the selector returns false', () => {
+      jest
+        .mocked(carState.selectors.showWitnessQuestions)
+        .mockReturnValue(false);
 
-      renderPage(newState);
-
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'headings.witnesses'
-        })
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('WitnessSection')
-      ).not.toBeInTheDocument();
-    });
-
-    it('should render witness questions when conditions are met', () => {
       renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'headings.witnesses'
-        })
-      ).toBeInTheDocument();
+      expectHeadingNotRendered(
+        'headings.witnesses'
+      );
 
-      expect(
-        screen.getByTestId('WitnessSection')
-      ).toBeInTheDocument();
+      expectNotRendered('WitnessSection');
+    });
+
+    it('should render the witness section when the selector returns true', () => {
+      jest
+        .mocked(carState.selectors.showWitnessQuestions)
+        .mockReturnValue(true);
+
+      renderPage();
+
+      expectHeadingRendered(
+        'headings.witnesses'
+      );
+
+      expectRendered('WitnessSection');
+    });
+  });
+
+  describe('event location', () => {
+    it('should render the configured event location heading', () => {
+      jest
+        .mocked(carState.selectors.getEventLocationHeaderLabel)
+        .mockReturnValue('accidentInformation');
+
+      renderPage();
+
+      expectHeadingRendered(
+        'headings.accidentInformation'
+      );
+    });
+
+    it('should render the event location component', () => {
+      renderPage();
+
+      expectRendered('EventLocation');
     });
   });
 });
