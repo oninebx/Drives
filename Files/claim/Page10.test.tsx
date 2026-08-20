@@ -7,61 +7,21 @@ import type { ApplicationState } from '~/root/rootReducer';
 import { getDefaultClaimCarState } from '../state';
 import Page1 from './Page1';
 
-jest.mock('~/feature/claim/car/state', () => {
-  const actual = jest.requireActual('~/feature/claim/car/state');
-
-  return {
-    ...actual,
-    selectors: {
-      ...actual.selectors,
-      getClaim: jest.fn(),
-      getBaseState: jest.fn(),
-      isCauseOfLossTheft: jest.fn(),
-      showYourDriverQuestions: jest.fn(),
-      showOtherPersonDetailsQuestions: jest.fn(),
-      showPoliceAttendQuestions: jest.fn(),
-      showFireAuthorityReport: jest.fn(),
-      showAuthorityReportQuestions: jest.fn(),
-      showOtherDriversQuestions: jest.fn(),
-      isOtherDriverInvolved: jest.fn(),
-      showWitnessQuestions: jest.fn(),
-      getCarDiscoveredMissingDate: jest.fn(),
-      getLossDate: jest.fn(),
-      getVehicleMakes: jest.fn(),
-      getEventLocationHeaderLabel: jest.fn(),
-      getEventLocationLabel: jest.fn()
-    }
-  };
-});
-
-jest.mock('~/feature/claim/shared/state', () => {
-  const actual = jest.requireActual('~/feature/claim/shared/state');
-
-  return {
-    ...actual,
-    selectors: {
-      ...actual.selectors,
-      getClaimType: jest.fn(),
-      getPolicyDetails: jest.fn(),
-      getPolicyDescription: jest.fn(),
-      getBackToPreStepsPrevented: jest.fn()
-    }
-  };
-});
-
 jest.mock('~/feature/claim/car/components', () => {
-  const actual = jest.requireActual('~/feature/claim/car/components');
+  const actual = jest.requireActual(
+    '~/feature/claim/car/components'
+  );
 
   return {
     ...actual,
     AuthorityReportFire: () => (
-      <div data-testid="AuthorityReportFire" />
+      <div data-testid="authority-report-fire" />
     ),
     AuthorityReportPolice: () => (
-      <div data-testid="AuthorityReportPolice" />
+      <div data-testid="authority-report-police" />
     ),
     OtherDrivers: () => (
-      <div data-testid="OtherDrivers" />
+      <div data-testid="other-drivers" />
     )
   };
 });
@@ -74,19 +34,19 @@ jest.mock('~/feature/claim/car/components/dumb', () => {
   return {
     ...actual,
     DriverDetails: () => (
-      <div data-testid="DriverDetails" />
+      <div data-testid="driver-details" />
     ),
     OtherPeopleDetail: () => (
-      <div data-testid="OtherPeopleDetail" />
+      <div data-testid="other-people-detail" />
     ),
     PoliceAttend: () => (
-      <div data-testid="PoliceAttend" />
+      <div data-testid="police-attend" />
     ),
     TheftSection1: () => (
-      <div data-testid="TheftSection1" />
+      <div data-testid="theft-section-1" />
     ),
     TheftSection2: () => (
-      <div data-testid="TheftSection2" />
+      <div data-testid="theft-section-2" />
     )
   };
 });
@@ -99,19 +59,19 @@ jest.mock('~/feature/claim/shared/components', () => {
   return {
     ...actual,
     EventDescription: () => (
-      <div data-testid="EventDescription" />
+      <div data-testid="event-description" />
     ),
     EventLocation: () => (
-      <div data-testid="EventLocation" />
+      <div data-testid="event-location" />
     ),
     FloatingToolbar: () => (
-      <div data-testid="FloatingToolbar" />
+      <div data-testid="floating-toolbar" />
     ),
     FormFooter: () => (
-      <div data-testid="FormFooter" />
+      <div data-testid="form-footer" />
     ),
     WitnessSection: () => (
-      <div data-testid="WitnessSection" />
+      <div data-testid="witness-section" />
     )
   };
 });
@@ -145,11 +105,15 @@ describe('Page1', () => {
   };
 
   const expectRendered = (testId: string) => {
-    expect(screen.getByTestId(testId)).toBeInTheDocument();
+    expect(
+      screen.getByTestId(testId)
+    ).toBeInTheDocument();
   };
 
   const expectNotRendered = (testId: string) => {
-    expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(testId)
+    ).not.toBeInTheDocument();
   };
 
   const expectHeadingRendered = (
@@ -177,88 +141,97 @@ describe('Page1', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
 
     jest
-      .mocked(carState.selectors.getClaim)
+      .spyOn(carState.selectors, 'getClaim')
       .mockReturnValue(claim);
 
     jest
-      .mocked(carState.selectors.getBaseState)
+      .spyOn(carState.selectors, 'getBaseState')
       .mockReturnValue(baseState);
 
     jest
-      .mocked(carState.selectors.isCauseOfLossTheft)
+      .spyOn(carState.selectors, 'isCauseOfLossTheft')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showYourDriverQuestions)
+      .spyOn(carState.selectors, 'showYourDriverQuestions')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+      .spyOn(carState.selectors, 'showOtherPersonDetailsQuestions')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showPoliceAttendQuestions)
+      .spyOn(carState.selectors, 'showPoliceAttendQuestions')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showFireAuthorityReport)
+      .spyOn(carState.selectors, 'showFireAuthorityReport')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showAuthorityReportQuestions)
+      .spyOn(carState.selectors, 'showAuthorityReportQuestions')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showOtherDriversQuestions)
+      .spyOn(carState.selectors, 'showOtherDriversQuestions')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.isOtherDriverInvolved)
+      .spyOn(carState.selectors, 'isOtherDriverInvolved')
       .mockReturnValue(false);
 
     jest
-      .mocked(carState.selectors.showWitnessQuestions)
+      .spyOn(carState.selectors, 'showWitnessQuestions')
       .mockReturnValue(true);
 
     jest
-      .mocked(carState.selectors.getCarDiscoveredMissingDate)
+      .spyOn(carState.selectors, 'getCarDiscoveredMissingDate')
       .mockReturnValue(undefined);
 
     jest
-      .mocked(carState.selectors.getLossDate)
+      .spyOn(carState.selectors, 'getLossDate')
       .mockReturnValue(claim.lossDate);
 
     jest
-      .mocked(carState.selectors.getVehicleMakes)
+      .spyOn(carState.selectors, 'getVehicleMakes')
       .mockReturnValue([]);
 
     jest
-      .mocked(carState.selectors.getEventLocationHeaderLabel)
+      .spyOn(
+        carState.selectors,
+        'getEventLocationHeaderLabel'
+      )
       .mockReturnValue('accidentInformation');
 
     jest
-      .mocked(carState.selectors.getEventLocationLabel)
+      .spyOn(
+        carState.selectors,
+        'getEventLocationLabel'
+      )
       .mockReturnValue(
         'accidentWhileDriving.search'
       );
 
     jest
-      .mocked(sharedState.selectors.getClaimType)
+      .spyOn(sharedState.selectors, 'getClaimType')
       .mockReturnValue('car');
 
     jest
-      .mocked(sharedState.selectors.getPolicyDetails)
+      .spyOn(sharedState.selectors, 'getPolicyDetails')
       .mockReturnValue(undefined);
 
     jest
-      .mocked(sharedState.selectors.getPolicyDescription)
+      .spyOn(sharedState.selectors, 'getPolicyDescription')
       .mockReturnValue(undefined);
 
     jest
-      .mocked(sharedState.selectors.getBackToPreStepsPrevented)
+      .spyOn(
+        sharedState.selectors,
+        'getBackToPreStepsPrevented'
+      )
       .mockReturnValue(false);
   });
 
@@ -267,7 +240,9 @@ describe('Page1', () => {
       renderPage();
 
       expect(
-        screen.getByText('Your claim number: ABC123')
+        screen.getByText(
+          'Your claim number: ABC123'
+        )
       ).toBeInTheDocument();
 
       expect(
@@ -278,14 +253,18 @@ describe('Page1', () => {
     it('should render the page heading', () => {
       renderPage();
 
-      expectHeadingRendered('headings.page1');
+      expectHeadingRendered(
+        'headings.page1'
+      );
     });
 
     it('should render the pre steps summary with the correct details', () => {
       renderPage();
 
       expect(
-        screen.getByText('15/01/2025 at 3:45 pm')
+        screen.getByText(
+          '15/01/2025 at 3:45 pm'
+        )
       ).toBeInTheDocument();
 
       expect(
@@ -295,63 +274,90 @@ describe('Page1', () => {
       ).toBeInTheDocument();
     });
 
-    it('should render the event location section', () => {
+    it('should render the event location', () => {
       renderPage();
 
       expectHeadingRendered(
         'headings.accidentInformation'
       );
 
-      expectRendered('EventLocation');
+      expectRendered(
+        'event-location'
+      );
     });
 
     it('should render the event description', () => {
       renderPage();
 
-      expectRendered('EventDescription');
+      expectRendered(
+        'event-description'
+      );
     });
 
     it('should render the form footer', () => {
       renderPage();
 
-      expectRendered('FormFooter');
+      expectRendered(
+        'form-footer'
+      );
     });
 
     it('should render the floating toolbar', () => {
       renderPage();
 
-      expectRendered('FloatingToolbar');
+      expectRendered(
+        'floating-toolbar'
+      );
     });
   });
 
   describe('theft section', () => {
-    it('should not render the theft section when the selector returns false', () => {
+    it('should not render the theft section when cause of loss is not theft', () => {
       jest
-        .mocked(carState.selectors.isCauseOfLossTheft)
+        .spyOn(
+          carState.selectors,
+          'isCauseOfLossTheft'
+        )
         .mockReturnValue(false);
 
       renderPage();
 
-      expectNotRendered('TheftSection1');
-      expectNotRendered('TheftSection2');
+      expectNotRendered(
+        'theft-section-1'
+      );
+
+      expectNotRendered(
+        'theft-section-2'
+      );
     });
 
-    it('should render the theft sections when the selector returns true', () => {
+    it('should render the theft sections when cause of loss is theft', () => {
       jest
-        .mocked(carState.selectors.isCauseOfLossTheft)
+        .spyOn(
+          carState.selectors,
+          'isCauseOfLossTheft'
+        )
         .mockReturnValue(true);
 
       renderPage();
 
-      expectRendered('TheftSection1');
-      expectRendered('TheftSection2');
+      expectRendered(
+        'theft-section-1'
+      );
+
+      expectRendered(
+        'theft-section-2'
+      );
     });
   });
 
   describe('your driver section', () => {
-    it('should not render the your driver section when the selector returns false', () => {
+    it('should not render the your driver section when selector returns false', () => {
       jest
-        .mocked(carState.selectors.showYourDriverQuestions)
+        .spyOn(
+          carState.selectors,
+          'showYourDriverQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -360,12 +366,17 @@ describe('Page1', () => {
         'headings.yourDriver'
       );
 
-      expectNotRendered('DriverDetails');
+      expectNotRendered(
+        'driver-details'
+      );
     });
 
-    it('should render the your driver section when the selector returns true', () => {
+    it('should render the your driver section when selector returns true', () => {
       jest
-        .mocked(carState.selectors.showYourDriverQuestions)
+        .spyOn(
+          carState.selectors,
+          'showYourDriverQuestions'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -374,14 +385,19 @@ describe('Page1', () => {
         'headings.yourDriver'
       );
 
-      expectRendered('DriverDetails');
+      expectRendered(
+        'driver-details'
+      );
     });
   });
 
   describe('other driver section', () => {
-    it('should not render the other driver section when the selector returns false', () => {
+    it('should not render the other driver section when selector returns false', () => {
       jest
-        .mocked(carState.selectors.showOtherDriversQuestions)
+        .spyOn(
+          carState.selectors,
+          'showOtherDriversQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -394,16 +410,24 @@ describe('Page1', () => {
         'headings.driverDetails'
       );
 
-      expectNotRendered('OtherDrivers');
+      expectNotRendered(
+        'other-drivers'
+      );
     });
 
-    it('should render otherDriverDetails when another driver is involved', () => {
+    it('should render the other driver details when another driver is involved', () => {
       jest
-        .mocked(carState.selectors.showOtherDriversQuestions)
+        .spyOn(
+          carState.selectors,
+          'showOtherDriversQuestions'
+        )
         .mockReturnValue(true);
 
       jest
-        .mocked(carState.selectors.isOtherDriverInvolved)
+        .spyOn(
+          carState.selectors,
+          'isOtherDriverInvolved'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -416,16 +440,24 @@ describe('Page1', () => {
         'headings.driverDetails'
       );
 
-      expectRendered('OtherDrivers');
+      expectRendered(
+        'other-drivers'
+      );
     });
 
-    it('should render driverDetails when another driver is not involved', () => {
+    it('should render the driver details when another driver is not involved', () => {
       jest
-        .mocked(carState.selectors.showOtherDriversQuestions)
+        .spyOn(
+          carState.selectors,
+          'showOtherDriversQuestions'
+        )
         .mockReturnValue(true);
 
       jest
-        .mocked(carState.selectors.isOtherDriverInvolved)
+        .spyOn(
+          carState.selectors,
+          'isOtherDriverInvolved'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -438,14 +470,19 @@ describe('Page1', () => {
         'headings.otherDriverDetails'
       );
 
-      expectRendered('OtherDrivers');
+      expectRendered(
+        'other-drivers'
+      );
     });
   });
 
   describe('other person details', () => {
-    it('should not render other person details when the selector returns false', () => {
+    it('should not render other person details when selector returns false', () => {
       jest
-        .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+        .spyOn(
+          carState.selectors,
+          'showOtherPersonDetailsQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -454,12 +491,17 @@ describe('Page1', () => {
         'headings.otherPeopleDetails'
       );
 
-      expectNotRendered('OtherPeopleDetail');
+      expectNotRendered(
+        'other-people-detail'
+      );
     });
 
-    it('should render other person details when the selector returns true', () => {
+    it('should render other person details when selector returns true', () => {
       jest
-        .mocked(carState.selectors.showOtherPersonDetailsQuestions)
+        .spyOn(
+          carState.selectors,
+          'showOtherPersonDetailsQuestions'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -468,14 +510,19 @@ describe('Page1', () => {
         'headings.otherPeopleDetails'
       );
 
-      expectRendered('OtherPeopleDetail');
+      expectRendered(
+        'other-people-detail'
+      );
     });
   });
 
   describe('fire authority report', () => {
-    it('should not render the fire authority report when the selector returns false', () => {
+    it('should not render the fire authority report when selector returns false', () => {
       jest
-        .mocked(carState.selectors.showFireAuthorityReport)
+        .spyOn(
+          carState.selectors,
+          'showFireAuthorityReport'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -484,12 +531,17 @@ describe('Page1', () => {
         'headings.fire'
       );
 
-      expectNotRendered('AuthorityReportFire');
+      expectNotRendered(
+        'authority-report-fire'
+      );
     });
 
-    it('should render the fire authority report when the selector returns true', () => {
+    it('should render the fire authority report when selector returns true', () => {
       jest
-        .mocked(carState.selectors.showFireAuthorityReport)
+        .spyOn(
+          carState.selectors,
+          'showFireAuthorityReport'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -498,18 +550,26 @@ describe('Page1', () => {
         'headings.fire'
       );
 
-      expectRendered('AuthorityReportFire');
+      expectRendered(
+        'authority-report-fire'
+      );
     });
   });
 
   describe('police section', () => {
     it('should not render the police section when neither selector returns true', () => {
       jest
-        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .spyOn(
+          carState.selectors,
+          'showPoliceAttendQuestions'
+        )
         .mockReturnValue(false);
 
       jest
-        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .spyOn(
+          carState.selectors,
+          'showAuthorityReportQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -518,17 +578,28 @@ describe('Page1', () => {
         'headings.police'
       );
 
-      expectNotRendered('PoliceAttend');
-      expectNotRendered('AuthorityReportPolice');
+      expectNotRendered(
+        'police-attend'
+      );
+
+      expectNotRendered(
+        'authority-report-police'
+      );
     });
 
-    it('should render authority report police when the authority report selector returns true', () => {
+    it('should render the police heading and authority report when authority report is shown', () => {
       jest
-        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .spyOn(
+          carState.selectors,
+          'showPoliceAttendQuestions'
+        )
         .mockReturnValue(false);
 
       jest
-        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .spyOn(
+          carState.selectors,
+          'showAuthorityReportQuestions'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -537,17 +608,28 @@ describe('Page1', () => {
         'headings.police'
       );
 
-      expectNotRendered('PoliceAttend');
-      expectRendered('AuthorityReportPolice');
+      expectNotRendered(
+        'police-attend'
+      );
+
+      expectRendered(
+        'authority-report-police'
+      );
     });
 
-    it('should render police attend when the police attend selector returns true', () => {
+    it('should render the police heading and police attend when police attend is shown', () => {
       jest
-        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .spyOn(
+          carState.selectors,
+          'showPoliceAttendQuestions'
+        )
         .mockReturnValue(true);
 
       jest
-        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .spyOn(
+          carState.selectors,
+          'showAuthorityReportQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -556,17 +638,28 @@ describe('Page1', () => {
         'headings.police'
       );
 
-      expectRendered('PoliceAttend');
-      expectNotRendered('AuthorityReportPolice');
+      expectRendered(
+        'police-attend'
+      );
+
+      expectNotRendered(
+        'authority-report-police'
+      );
     });
 
     it('should render both police sections when both selectors return true', () => {
       jest
-        .mocked(carState.selectors.showPoliceAttendQuestions)
+        .spyOn(
+          carState.selectors,
+          'showPoliceAttendQuestions'
+        )
         .mockReturnValue(true);
 
       jest
-        .mocked(carState.selectors.showAuthorityReportQuestions)
+        .spyOn(
+          carState.selectors,
+          'showAuthorityReportQuestions'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -575,15 +668,23 @@ describe('Page1', () => {
         'headings.police'
       );
 
-      expectRendered('PoliceAttend');
-      expectRendered('AuthorityReportPolice');
+      expectRendered(
+        'police-attend'
+      );
+
+      expectRendered(
+        'authority-report-police'
+      );
     });
   });
 
   describe('witness section', () => {
-    it('should not render the witness section when the selector returns false', () => {
+    it('should not render the witness section when selector returns false', () => {
       jest
-        .mocked(carState.selectors.showWitnessQuestions)
+        .spyOn(
+          carState.selectors,
+          'showWitnessQuestions'
+        )
         .mockReturnValue(false);
 
       renderPage();
@@ -592,12 +693,17 @@ describe('Page1', () => {
         'headings.witnesses'
       );
 
-      expectNotRendered('WitnessSection');
+      expectNotRendered(
+        'witness-section'
+      );
     });
 
-    it('should render the witness section when the selector returns true', () => {
+    it('should render the witness section when selector returns true', () => {
       jest
-        .mocked(carState.selectors.showWitnessQuestions)
+        .spyOn(
+          carState.selectors,
+          'showWitnessQuestions'
+        )
         .mockReturnValue(true);
 
       renderPage();
@@ -606,27 +712,28 @@ describe('Page1', () => {
         'headings.witnesses'
       );
 
-      expectRendered('WitnessSection');
+      expectRendered(
+        'witness-section'
+      );
     });
   });
 
-  describe('event location', () => {
-    it('should render the configured event location heading', () => {
+  describe('event location heading', () => {
+    it('should render the event location heading returned by the selector', () => {
       jest
-        .mocked(carState.selectors.getEventLocationHeaderLabel)
-        .mockReturnValue('accidentInformation');
+        .spyOn(
+          carState.selectors,
+          'getEventLocationHeaderLabel'
+        )
+        .mockReturnValue(
+          'accidentInformation'
+        );
 
       renderPage();
 
       expectHeadingRendered(
         'headings.accidentInformation'
       );
-    });
-
-    it('should render the event location component', () => {
-      renderPage();
-
-      expectRendered('EventLocation');
     });
   });
 });
