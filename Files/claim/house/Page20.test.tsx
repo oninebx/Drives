@@ -1,9 +1,5 @@
 import { screen } from '@testing-library/react';
 import * as React from 'react';
-import { Form } from 'react-redux-form';
-import { Route, Routes } from 'react-router';
-
-import { routes } from '~/common/state';
 import { renderComponent } from '~/common/test-utilities/renderComponent';
 
 import Page2 from './Page2';
