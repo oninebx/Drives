@@ -1,0 +1,81 @@
+ OtherPeopleDetailsComponent › should render child components with the correct props
+
+    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+
+    Expected: ObjectContaining {"yesSelected": true}, Anything
+
+    Number of calls: 0
+
+      123 |     );
+      124 |
+    > 125 |     expect(AddDetailsOrSkip).toHaveBeenCalledWith(
+          |                              ^
+      126 |       expect.objectContaining({ yesSelected: true }),
+      127 |       expect.anything()
+      128 |     );
+
+      at Object.toHaveBeenCalledWith (src/feature/claim/car/components/dumb/OtherPeopleDetails/OtherPeopleDetails.test.tsx:125:30)
+
+  ● OtherPeopleDetailsComponent › should pass the correct props to OtherPersonDetails
+
+    expect(jest.fn()).toHaveBeenNthCalledWith(n, ...expected)
+
+    n: 1
+    Expected: ObjectContaining {"addressState": {"addressLine1": "1 Test Street", "suburb": "Auckland"}, "formModelPath": "car.otherPeopleDetails[0]", "idPrefixString": "otherPeopleDetails", "index": 0, "isOptional": true, "modelPath": "claim.car.otherPeopleDetails[0]", "translationPathString": "claim/Motor:otherPeopleDetails"}
+
+    Number of calls: 0
+
+      156 |     render(<OtherPeopleDetailsComponent />);
+      157 |
+    > 158 |     expect(OtherPersonDetails).toHaveBeenNthCalledWith(
+          |                                ^
+      159 |       1,
+      160 |       expect.objectContaining({
+      161 |         index: 0,
+
+      at Object.toHaveBeenNthCalledWith (src/feature/claim/car/components/dumb/OtherPeopleDetails/OtherPeopleDetails.test.tsx:158:32)
+
+  ● OtherPeopleDetailsComponent › should add an other person when Yes is clicked
+
+    TypeError: Cannot read properties of undefined (reading '0')
+
+      186 |     render(<OtherPeopleDetailsComponent />);
+      187 |
+    > 188 |     const { onClickYes } = AddDetailsOrSkip.mock.calls[0][0];
+          |                                                          ^
+      189 |     onClickYes();
+      190 |
+      191 |     expect(thunks.addOtherPerson).toHaveBeenCalledWith(
+
+      at Object.<anonymous> (src/feature/claim/car/components/dumb/OtherPeopleDetails/OtherPeopleDetails.test.tsx:188:58)
+
+  ● OtherPeopleDetailsComponent › should reset the model and jump to the next question when No is clicked
+
+    TypeError: Cannot read properties of undefined (reading '0')
+
+      200 |     render(<OtherPeopleDetailsComponent />);
+      201 |
+    > 202 |     const { onClickNo } = AddDetailsOrSkip.mock.calls[0][0];
+          |                                                         ^
+      203 |     onClickNo();
+      204 |
+      205 |     expect(sharedThunks.resetModelState).toHaveBeenCalledWith(
+
+      at Object.<anonymous> (src/feature/claim/car/components/dumb/OtherPeopleDetails/OtherPeopleDetails.test.tsx:202:57)
+
+  ● OtherPeopleDetailsComponent › should call the expected child components once per render
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      285 |
+      286 |     expect(Question).toHaveBeenCalledTimes(1);
+    > 287 |     expect(AddDetailsOrSkip).toHaveBeenCalledTimes(1);
+          |                              ^
+      288 |     expect(MultiBlock).toHaveBeenCalledTimes(1);
+      289 |     expect(OtherPersonDetails).toHaveBeenCalledTimes(2);
+      290 |   });
+
+      at Object.toHaveBeenCalledTimes (src/feature/claim/car/components/dumb/OtherPeopleDetails/OtherPeopleDetails.test.tsx:287:30)
