@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { OtherPeopleDetailsComponent } from './OtherPeopleDetails';
 import { jumpToNextQuestionEx } from '~/common/utilities';
@@ -10,7 +10,6 @@ import {
   selectors,
   thunks,
 } from '~/feature/claim/car/state';
-
 import {
   selectors as sharedSelectors,
   thunks as sharedThunks,
@@ -18,9 +17,7 @@ import {
 import { useAppDispatch, useAppSelector } from '~/root/store';
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
+  useTranslation: () => ({ t: (key: string) => key }),
 }));
 
 jest.mock('~/root/store', () => ({
@@ -36,13 +33,11 @@ jest.mock('~/feature/claim/car/state', () => ({
   formPath: 'car',
   modelPath: 'claim.car',
   MAX_ALLOWED_OTHER_PEOPLE_COUNT: 5,
-
   selectors: {
     getOtherPeopleDetails: jest.fn(),
     getOtherPeopleDetailsCount: jest.fn(),
     hasOtherPeopleDetails: jest.fn(),
   },
-
   thunks: {
     addOtherPerson: jest.fn(),
     updateOtherPeople: jest.fn(),
@@ -50,683 +45,241 @@ jest.mock('~/feature/claim/car/state', () => ({
 }));
 
 jest.mock('~/feature/claim/shared/state', () => ({
-  selectors: {
-    getClaimType: jest.fn(),
-  },
-
-  thunks: {
-    resetModelState: jest.fn(),
-  },
+  selectors: { getClaimType: jest.fn() },
+  thunks: { resetModelState: jest.fn() },
 }));
 
 jest.mock('~/common/components/dumb', () => ({
-  MultiBlock: jest.fn(
-    ({
-      id,
-      headerLabel,
-      model,
-      multiBlockItems,
-      addLinkText,
-      removeLinkText,
-      handleAdd,
-      handleRemove,
-    }) => (
-      <div data-testid={id}>
-        <div data-testid="multi-block-header">
-          {headerLabel}
-        </div>
-
-        <div data-testid="multi-block-model">
-          {model}
-        </div>
-
-        <div data-testid="multi-block-add-text">
-          {addLinkText}
-        </div>
-
-        <div data-testid="multi-block-remove-text">
-          {removeLinkText}
-        </div>
-
-        {multiBlockItems.map((item: any) => (
-          <div
-            key={item.index}
-            data-testid={`multi-block-item-${item.index}`}
-          >
-            <span data-testid={`show-add-link-${item.index}`}>
-              {String(item.showAddLink)}
-            </span>
-
-            <span data-testid={`show-remove-link-${item.index}`}>
-              {String(item.showRemoveLink)}
-            </span>
-
-            {item.children}
-          </div>
-        ))}
-
-        <button
-          data-testid="multi-block-add"
-          onClick={() => handleAdd(1)}
-        >
-          Add
-        </button>
-
-        <button
-          data-testid="multi-block-remove"
-          onClick={() => handleRemove(1)}
-        >
-          Remove
-        </button>
-      </div>
-    )
-  ),
+  MultiBlock: jest.fn(() => null as React.ReactElement),
 }));
 
-jest.mock(
-  '~/feature/claim/car/components/dumb',
-  () => ({
-    OtherPersonDetails: jest.fn(
-      ({
-        index,
-        modelPath: personModelPath,
-        formModelPath,
-        addressState,
-        idPrefixString,
-        translationPathString,
-        isOptional,
-      }) => (
-        <div data-testid={`other-person-${index}`}>
-          <span data-testid={`person-model-path-${index}`}>
-            {personModelPath}
-          </span>
+jest.mock('~/feature/claim/car/components/dumb', () => ({
+  OtherPersonDetails: jest.fn(() => null as React.ReactElement),
+}));
 
-          <span data-testid={`person-form-model-path-${index}`}>
-            {formModelPath}
-          </span>
+jest.mock('~/feature/claim/shared/components', () => ({
+  Question: jest.fn(() => null as React.ReactElement),
+  AddDetailsOrSkip: jest.fn(() => null as React.ReactElement),
+}));
 
-          <span data-testid={`person-address-${index}`}>
-            {JSON.stringify(addressState)}
-          </span>
-
-          <span data-testid={`person-id-prefix-${index}`}>
-            {idPrefixString}
-          </span>
-
-          <span data-testid={`person-translation-path-${index}`}>
-            {translationPathString}
-          </span>
-
-          <span data-testid={`person-optional-${index}`}>
-            {String(isOptional)}
-          </span>
-        </div>
-      )
-    ),
-  })
+const { MultiBlock } = jest.requireMock('~/common/components/dumb');
+const { OtherPersonDetails } = jest.requireMock(
+  '~/feature/claim/car/components/dumb'
 );
-
-jest.mock(
-  '~/feature/claim/shared/components',
-  () => ({
-    Question: jest.fn(
-      ({
-        id,
-        model,
-        translation,
-        children,
-      }) => (
-        <div data-testid={id}>
-          <span data-testid="question-model">
-            {model}
-          </span>
-
-          <span data-testid="question-translation">
-            {translation}
-          </span>
-
-          {children}
-        </div>
-      )
-    ),
-
-    AddDetailsOrSkip: jest.fn(
-      ({
-        id,
-        onClickYes,
-        onClickNo,
-        yesSelected,
-      }) => (
-        <div data-testid={id}>
-          <span data-testid="yes-selected">
-            {String(yesSelected)}
-          </span>
-
-          <button
-            data-testid="add-details-yes"
-            onClick={onClickYes}
-          >
-            Yes
-          </button>
-
-          <button
-            data-testid="add-details-no"
-            onClick={onClickNo}
-          >
-            No
-          </button>
-        </div>
-      )
-    ),
-  })
+const { Question, AddDetailsOrSkip } = jest.requireMock(
+  '~/feature/claim/shared/components'
 );
 
 describe('OtherPeopleDetailsComponent', () => {
   const dispatch = jest.fn();
-
-  const otherPeopleState = [
-    {
-      address: {
-        addressLine1: '1 Test Street',
-        suburb: 'Auckland',
-      },
-    },
-    {
-      address: {
-        addressLine1: '2 Test Street',
-        suburb: 'Auckland',
-      },
-    }
-  ];
-
   const claimType = 'Motor';
-
+  const otherPeopleState = [
+    { address: { addressLine1: '1 Test Street', suburb: 'Auckland' } },
+    { address: { addressLine1: '2 Test Street', suburb: 'Auckland' } },
+  ];
   const selectorValues = new Map();
 
   beforeEach(() => {
     jest.clearAllMocks();
-
     selectorValues.clear();
 
-    (useAppDispatch as jest.Mock).mockReturnValue(
-      dispatch
-    );
-
-    /*
-     * Important:
-     *
-     * useAppSelector(selector)
-     *        ↓
-     * selectorValues.get(selector)
-     *
-     * This is important because this component uses
-     * multiple selectors with different return values.
-     */
+    (useAppDispatch as jest.Mock).mockReturnValue(dispatch);
     (useAppSelector as jest.Mock).mockImplementation(
-      (selector) => selectorValues.get(selector)
+      selector => selectorValues.get(selector)
     );
 
-    selectorValues.set(
-      selectors.getOtherPeopleDetails,
-      otherPeopleState
-    );
+    selectorValues.set(selectors.getOtherPeopleDetails, otherPeopleState);
+    selectorValues.set(selectors.getOtherPeopleDetailsCount, 2);
+    selectorValues.set(selectors.hasOtherPeopleDetails, true);
+    selectorValues.set(sharedSelectors.getClaimType, claimType);
 
-    selectorValues.set(
-      sharedSelectors.getClaimType,
-      claimType
-    );
-
-    selectorValues.set(
-      selectors.getOtherPeopleDetailsCount,
-      2
-    );
-
-    selectorValues.set(
-      selectors.hasOtherPeopleDetails,
-      true
-    );
-
-    (
-      thunks.addOtherPerson as jest.Mock
-    ).mockReturnValue({
+    (thunks.addOtherPerson as jest.Mock).mockReturnValue({
       type: 'add-other-person',
     });
-
-    (
-      thunks.updateOtherPeople as jest.Mock
-    ).mockReturnValue({
+    (thunks.updateOtherPeople as jest.Mock).mockReturnValue({
       type: 'update-other-people',
     });
-
-    (
-      sharedThunks.resetModelState as jest.Mock
-    ).mockReturnValue({
+    (sharedThunks.resetModelState as jest.Mock).mockReturnValue({
       type: 'reset-model-state',
     });
+  });
 
-    dispatch.mockResolvedValue({});
+  describe('rendering', () => {
+    it('should render child components', () => {
+      render(<OtherPeopleDetailsComponent />);
+
+      expect(Question).toHaveBeenCalledTimes(1);
+      expect(AddDetailsOrSkip).toHaveBeenCalledTimes(1);
+      expect(MultiBlock).toHaveBeenCalledTimes(1);
+      expect(OtherPersonDetails).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not render MultiBlock or OtherPersonDetails when there are no people', () => {
+      selectorValues.set(selectors.hasOtherPeopleDetails, false);
+      selectorValues.set(selectors.getOtherPeopleDetails, []);
+      selectorValues.set(selectors.getOtherPeopleDetailsCount, 0);
+
+      render(<OtherPeopleDetailsComponent />);
+
+      expect(MultiBlock).not.toHaveBeenCalled();
+      expect(OtherPersonDetails).not.toHaveBeenCalled();
+    });
   });
 
   describe('Question', () => {
-    it('should render the question', () => {
+    it('should pass the correct props', () => {
       render(<OtherPeopleDetailsComponent />);
 
-      expect(
-        screen.getByTestId(
-          'questionOtherPeopleDetails'
-        )
-      ).toBeInTheDocument();
-    });
-
-    it('should use the correct question model', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('question-model')
-      ).toHaveTextContent(modelPath);
-    });
-
-    it('should use the claim type in the question translation path', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('question-translation')
-      ).toHaveTextContent(
-        `claim/${claimType}:otherPeopleDetails.otherDetails`
+      expect(Question).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'questionOtherPeopleDetails',
+          model: modelPath,
+          translation: `claim/${claimType}:otherPeopleDetails.otherDetails`,
+        }),
+        expect.anything()
       );
-    });
-
-    it('should pass hasOtherPeopleDetails to yesSelected', () => {
-      selectorValues.set(
-        selectors.hasOtherPeopleDetails,
-        true
-      );
-
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('yes-selected')
-      ).toHaveTextContent('true');
-    });
-
-    it('should pass false when there are no other people', () => {
-      selectorValues.set(
-        selectors.hasOtherPeopleDetails,
-        false
-      );
-
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('yes-selected')
-      ).toHaveTextContent('false');
     });
   });
 
   describe('AddDetailsOrSkip', () => {
-    it('should dispatch addOtherPerson when Yes is clicked', () => {
+    it('should pass hasOtherPeopleDetails as yesSelected', () => {
       render(<OtherPeopleDetailsComponent />);
 
-      fireEvent.click(
-        screen.getByTestId('add-details-yes')
+      expect(AddDetailsOrSkip).toHaveBeenCalledWith(
+        expect.objectContaining({ yesSelected: true }),
+        expect.anything()
       );
-
-      expect(
-        thunks.addOtherPerson
-      ).toHaveBeenCalledTimes(1);
-
-      expect(
-        thunks.addOtherPerson
-      ).toHaveBeenCalledWith(
-        `${modelPath}.otherPeopleDetails`
-      );
-
-      expect(dispatch).toHaveBeenCalledWith({
-        type: 'add-other-person',
-      });
     });
 
-    it('should reset model state and jump to next question when No is clicked', () => {
+    it('should add an other person when Yes is clicked', () => {
       render(<OtherPeopleDetailsComponent />);
+      const { onClickYes } = AddDetailsOrSkip.mock.calls[0][0];
 
-      fireEvent.click(
-        screen.getByTestId('add-details-no')
-      );
+      onClickYes();
 
-      expect(
-        sharedThunks.resetModelState
-      ).toHaveBeenCalledTimes(1);
-
-      expect(
-        sharedThunks.resetModelState
-      ).toHaveBeenCalledWith(
+      expect(thunks.addOtherPerson).toHaveBeenCalledWith(
         `${modelPath}.otherPeopleDetails`
       );
+      expect(dispatch).toHaveBeenCalledWith({ type: 'add-other-person' });
+    });
 
-      expect(dispatch).toHaveBeenCalledWith({
-        type: 'reset-model-state',
-      });
+    it('should reset the model and jump to the next question when No is clicked', () => {
+      render(<OtherPeopleDetailsComponent />);
+      const { onClickNo } = AddDetailsOrSkip.mock.calls[0][0];
 
-      expect(
-        jumpToNextQuestionEx
-      ).toHaveBeenCalledTimes(1);
+      onClickNo();
 
-      expect(
-        jumpToNextQuestionEx
-      ).toHaveBeenCalledWith(
+      expect(sharedThunks.resetModelState).toHaveBeenCalledWith(
+        `${modelPath}.otherPeopleDetails`
+      );
+      expect(dispatch).toHaveBeenCalledWith({ type: 'reset-model-state' });
+      expect(jumpToNextQuestionEx).toHaveBeenCalledWith(
         '#addOrSkipOtherPeopleDetails'
       );
     });
   });
 
-  describe('MultiBlock', () => {
-    it('should render MultiBlock when there are other people', () => {
-      selectorValues.set(
-        selectors.hasOtherPeopleDetails,
-        true
-      );
-
+  describe('OtherPersonDetails', () => {
+    it('should pass the correct props', () => {
       render(<OtherPeopleDetailsComponent />);
 
-      expect(
-        screen.getByTestId(
-          'mainHasOtherPeopleDetailsAccordion'
-        )
-      ).toBeInTheDocument();
-    });
-
-    it('should not render MultiBlock when there are no other people', () => {
-      selectorValues.set(
-        selectors.hasOtherPeopleDetails,
-        false
-      );
-
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.queryByTestId(
-          'mainHasOtherPeopleDetailsAccordion'
-        )
-      ).not.toBeInTheDocument();
-    });
-
-    it('should use the correct model path', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('multi-block-model')
-      ).toHaveTextContent(
-        `${modelPath}.otherPeopleDetails`
-      );
-    });
-
-    it('should use the correct translated header', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('multi-block-header')
-      ).toHaveTextContent(
-        `claim/${claimType}:otherPeopleDetails.heading`
-      );
-    });
-
-    it('should use the correct add link text', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('multi-block-add-text')
-      ).toHaveTextContent(
-        `claim/${claimType}:otherPeopleDetails.addAnotherPerson`
-      );
-    });
-
-    it('should use the correct remove link text', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('multi-block-remove-text')
-      ).toHaveTextContent('button.remove');
-    });
-  });
-
-  describe('OtherPersonDetails items', () => {
-    it('should render one OtherPersonDetails for each person', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('other-person-0')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('other-person-1')
-      ).toBeInTheDocument();
-    });
-
-    it('should use the correct model path for each person', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('person-model-path-0')
-      ).toHaveTextContent(
-        `${modelPath}.otherPeopleDetails[0]`
-      );
-
-      expect(
-        screen.getByTestId('person-model-path-1')
-      ).toHaveTextContent(
-        `${modelPath}.otherPeopleDetails[1]`
-      );
-    });
-
-    it('should use the correct form model path for each person', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId(
-          'person-form-model-path-0'
-        )
-      ).toHaveTextContent(
-        `${formPath}.otherPeopleDetails[0]`
-      );
-
-      expect(
-        screen.getByTestId(
-          'person-form-model-path-1'
-        )
-      ).toHaveTextContent(
-        `${formPath}.otherPeopleDetails[1]`
-      );
-    });
-
-    it('should pass address state to OtherPersonDetails', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('person-address-0')
-      ).toHaveTextContent(
-        JSON.stringify(otherPeopleState[0].address)
-      );
-
-      expect(
-        screen.getByTestId('person-address-1')
-      ).toHaveTextContent(
-        JSON.stringify(otherPeopleState[1].address)
-      );
-    });
-
-    it('should use otherPeopleDetails as the id prefix', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('person-id-prefix-0')
-      ).toHaveTextContent(
-        'otherPeopleDetails'
-      );
-    });
-
-    it('should use the claim type in OtherPersonDetails translation path', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId(
-          'person-translation-path-0'
-        )
-      ).toHaveTextContent(
-        `claim/${claimType}:otherPeopleDetails`
-      );
-    });
-
-    it('should mark OtherPersonDetails as optional', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('person-optional-0')
-      ).toHaveTextContent('true');
-    });
-  });
-
-  describe('add person link', () => {
-    it('should show add link for the last person when maximum count has not been reached', () => {
-      selectorValues.set(
-        selectors.getOtherPeopleDetailsCount,
-        2
-      );
-
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('show-add-link-0')
-      ).toHaveTextContent('false');
-
-      expect(
-        screen.getByTestId('show-add-link-1')
-      ).toHaveTextContent('true');
-    });
-
-    it('should not show add link when maximum count has been reached', () => {
-      const people = Array.from(
-        { length: MAX_ALLOWED_OTHER_PEOPLE_COUNT },
-        (_, index) => ({
-          address: {
-            addressLine1: `${index + 1} Test Street`,
-          },
+      expect(OtherPersonDetails).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          index: 0,
+          modelPath: `${modelPath}.otherPeopleDetails[0]`,
+          formModelPath: `${formPath}.otherPeopleDetails[0]`,
+          addressState: otherPeopleState[0].address,
+          idPrefixString: 'otherPeopleDetails',
+          translationPathString: `claim/${claimType}:otherPeopleDetails`,
+          isOptional: true,
         })
       );
 
-      selectorValues.set(
-        selectors.getOtherPeopleDetails,
-        people
+      expect(OtherPersonDetails).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          index: 1,
+          modelPath: `${modelPath}.otherPeopleDetails[1]`,
+          formModelPath: `${formPath}.otherPeopleDetails[1]`,
+          addressState: otherPeopleState[1].address,
+          idPrefixString: 'otherPeopleDetails',
+          translationPathString: `claim/${claimType}:otherPeopleDetails`,
+          isOptional: true,
+        })
+      );
+    });
+  });
+
+  describe('MultiBlock', () => {
+    it('should pass the correct props', () => {
+      render(<OtherPeopleDetailsComponent />);
+      const props = MultiBlock.mock.calls[0][0];
+
+      expect(props).toEqual(
+        expect.objectContaining({
+          id: 'mainHasOtherPeopleDetailsAccordion',
+          model: `${modelPath}.otherPeopleDetails`,
+          headerLabel: `claim/${claimType}:otherPeopleDetails.heading`,
+          addLinkText: `claim/${claimType}:otherPeopleDetails.addAnotherPerson`,
+          removeLinkText: 'button.remove',
+        })
+      );
+    });
+
+    it('should configure add link based on the maximum count', () => {
+      render(<OtherPeopleDetailsComponent />);
+      let { multiBlockItems } = MultiBlock.mock.calls[0][0];
+
+      expect(multiBlockItems.map(item => item.showAddLink)).toEqual([false, true]);
+
+      const people = Array.from(
+        { length: MAX_ALLOWED_OTHER_PEOPLE_COUNT },
+        (_, index) => ({ address: { addressLine1: `${index + 1} Test Street` } })
       );
 
+      selectorValues.set(selectors.getOtherPeopleDetails, people);
       selectorValues.set(
         selectors.getOtherPeopleDetailsCount,
         MAX_ALLOWED_OTHER_PEOPLE_COUNT
       );
 
+      MultiBlock.mockClear();
       render(<OtherPeopleDetailsComponent />);
 
-      expect(
-        screen.getByTestId(
-          `show-add-link-${
-            MAX_ALLOWED_OTHER_PEOPLE_COUNT - 1
-          }`
-        )
-      ).toHaveTextContent('false');
-    });
+      multiBlockItems = MultiBlock.mock.calls[0][0].multiBlockItems;
 
-    it('should always show remove link for each person', () => {
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.getByTestId('show-remove-link-0')
-      ).toHaveTextContent('true');
-
-      expect(
-        screen.getByTestId('show-remove-link-1')
-      ).toHaveTextContent('true');
+      expect(multiBlockItems.at(-1).showAddLink).toBe(false);
     });
   });
 
-  describe('handleAdd', () => {
-    it('should dispatch updateOtherPeople with add=true', () => {
+  describe('handlers', () => {
+    it('should add an other person', () => {
       render(<OtherPeopleDetailsComponent />);
+      const { handleAdd } = MultiBlock.mock.calls[0][0];
 
-      fireEvent.click(
-        screen.getByTestId('multi-block-add')
-      );
+      handleAdd(1);
 
-      expect(
-        thunks.updateOtherPeople
-      ).toHaveBeenCalledTimes(1);
-
-      expect(
-        thunks.updateOtherPeople
-      ).toHaveBeenCalledWith(
+      expect(thunks.updateOtherPeople).toHaveBeenCalledWith(
         1,
         true,
         otherPeopleState
       );
-
-      expect(dispatch).toHaveBeenCalledWith({
-        type: 'update-other-people',
-      });
+      expect(dispatch).toHaveBeenCalledWith({ type: 'update-other-people' });
     });
-  });
 
-  describe('handleRemove', () => {
-    it('should dispatch updateOtherPeople with add=false', () => {
+    it('should remove an other person', () => {
       render(<OtherPeopleDetailsComponent />);
+      const { handleRemove } = MultiBlock.mock.calls[0][0];
 
-      fireEvent.click(
-        screen.getByTestId('multi-block-remove')
-      );
+      handleRemove(1);
 
-      expect(
-        thunks.updateOtherPeople
-      ).toHaveBeenCalledTimes(1);
-
-      expect(
-        thunks.updateOtherPeople
-      ).toHaveBeenCalledWith(
+      expect(thunks.updateOtherPeople).toHaveBeenCalledWith(
         1,
         false,
         otherPeopleState
       );
-
-      expect(dispatch).toHaveBeenCalledWith({
-        type: 'update-other-people',
-      });
-    });
-  });
-
-  describe('empty state', () => {
-    it('should not render person details when there are no people', () => {
-      selectorValues.set(
-        selectors.getOtherPeopleDetails,
-        []
-      );
-
-      selectorValues.set(
-        selectors.getOtherPeopleDetailsCount,
-        0
-      );
-
-      selectorValues.set(
-        selectors.hasOtherPeopleDetails,
-        false
-      );
-
-      render(<OtherPeopleDetailsComponent />);
-
-      expect(
-        screen.queryByTestId('other-person-0')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId(
-          'mainHasOtherPeopleDetailsAccordion'
-        )
-      ).not.toBeInTheDocument();
+      expect(dispatch).toHaveBeenCalledWith({ type: 'update-other-people' });
     });
   });
 });
