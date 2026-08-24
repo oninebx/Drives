@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { fireEvent, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 
 import { OtherPeopleDetailsComponent } from './OtherPeopleDetails';
 import { jumpToNextQuestionEx } from '~/common/utilities';
@@ -17,7 +17,9 @@ import {
 import { useAppDispatch, useAppSelector } from '~/root/store';
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
 }));
 
 jest.mock('~/root/store', () => ({
@@ -62,55 +64,89 @@ jest.mock('~/feature/claim/car/components/dumb', () => ({
 }));
 
 jest.mock('~/feature/claim/shared/components', () => ({
-  Question: jest.fn(() => null as React.ReactElement),
-  AddDetailsOrSkip: jest.fn(() => null as React.ReactElement),
+  // Important: Question must render children so AddDetailsOrSkip is rendered.
+  Question: jest.fn(({ children }) => <>{children}</>),
+  AddDetailsOrSkip: jest.fn(
+    () => null as React.ReactElement
+  ),
 }));
 
-const { MultiBlock } = jest.requireMock('~/common/components/dumb');
+const { MultiBlock } = jest.requireMock(
+  '~/common/components/dumb'
+);
+
 const { OtherPersonDetails } = jest.requireMock(
   '~/feature/claim/car/components/dumb'
 );
+
 const { Question, AddDetailsOrSkip } = jest.requireMock(
   '~/feature/claim/shared/components'
 );
 
 describe('OtherPeopleDetailsComponent', () => {
   const dispatch = jest.fn();
+  const selectorValues = new Map();
+
   const claimType = 'Motor';
 
   const otherPeople = [
-    { address: { addressLine1: '1 Test Street', suburb: 'Auckland' } },
-    { address: { addressLine1: '2 Test Street', suburb: 'Auckland' } },
+    {
+      address: {
+        addressLine1: '1 Test Street',
+        suburb: 'Auckland',
+      },
+    },
+    {
+      address: {
+        addressLine1: '2 Test Street',
+        suburb: 'Auckland',
+      },
+    },
   ];
-
-  const selectorValues = new Map();
 
   beforeEach(() => {
     jest.clearAllMocks();
     selectorValues.clear();
 
     (useAppDispatch as jest.Mock).mockReturnValue(dispatch);
+
     (useAppSelector as jest.Mock).mockImplementation(
       selector => selectorValues.get(selector)
     );
 
-    selectorValues.set(selectors.getOtherPeopleDetails, otherPeople);
-    selectorValues.set(selectors.getOtherPeopleDetailsCount, 2);
-    selectorValues.set(selectors.hasOtherPeopleDetails, true);
-    selectorValues.set(sharedSelectors.getClaimType, claimType);
+    selectorValues.set(
+      selectors.getOtherPeopleDetails,
+      otherPeople
+    );
+    selectorValues.set(
+      selectors.getOtherPeopleDetailsCount,
+      2
+    );
+    selectorValues.set(
+      selectors.hasOtherPeopleDetails,
+      true
+    );
+    selectorValues.set(
+      sharedSelectors.getClaimType,
+      claimType
+    );
 
     (thunks.addOtherPerson as jest.Mock).mockReturnValue({
       type: 'add-other-person',
     });
+
     (thunks.updateOtherPeople as jest.Mock).mockReturnValue({
       type: 'update-other-people',
     });
-    (sharedThunks.resetModelState as jest.Mock).mockReturnValue({
+
+    (
+      sharedThunks.resetModelState as jest.Mock
+    ).mockReturnValue({
       type: 'reset-model-state',
     });
   });
 
-  it('should render child components with the correct props', () => {
+  it('should render Question and AddDetailsOrSkip with correct props', () => {
     render(<OtherPeopleDetailsComponent />);
 
     expect(Question).toHaveBeenCalledWith(
@@ -123,37 +159,75 @@ describe('OtherPeopleDetailsComponent', () => {
     );
 
     expect(AddDetailsOrSkip).toHaveBeenCalledWith(
-      expect.objectContaining({ yesSelected: true }),
+      expect.objectContaining({
+        id: 'addOrSkipOtherPeopleDetails',
+        yesSelected: true,
+        onClickYes: expect.any(Function),
+        onClickNo: expect.any(Function),
+      }),
       expect.anything()
     );
+  });
+
+  it('should add an other person when Yes is clicked', () => {
+    render(<OtherPeopleDetailsComponent />);
+
+    const { onClickYes } = AddDetailsOrSkip.mock.calls[0][0];
+
+    onClickYes();
+
+    expect(thunks.addOtherPerson).toHaveBeenCalledWith(
+      `${modelPath}.otherPeopleDetails`
+    );
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'add-other-person',
+    });
+  });
+
+  it('should reset the model and jump to the next question when No is clicked', () => {
+    render(<OtherPeopleDetailsComponent />);
+
+    const { onClickNo } = AddDetailsOrSkip.mock.calls[0][0];
+
+    onClickNo();
+
+    expect(
+      sharedThunks.resetModelState
+    ).toHaveBeenCalledWith(
+      `${modelPath}.otherPeopleDetails`
+    );
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'reset-model-state',
+    });
+
+    expect(jumpToNextQuestionEx).toHaveBeenCalledWith(
+      '#addOrSkipOtherPeopleDetails'
+    );
+  });
+
+  it('should render MultiBlock with correct props', () => {
+    render(<OtherPeopleDetailsComponent />);
 
     expect(MultiBlock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'mainHasOtherPeopleDetailsAccordion',
-        model: `${modelPath}.otherPeopleDetails`,
         headerLabel: `claim/${claimType}:otherPeopleDetails.heading`,
+        model: `${modelPath}.otherPeopleDetails`,
         addLinkText: `claim/${claimType}:otherPeopleDetails.addAnotherPerson`,
         removeLinkText: 'button.remove',
+        multiBlockItems: expect.any(Array),
+        handleAdd: expect.any(Function),
+        handleRemove: expect.any(Function),
       }),
       expect.anything()
     );
+  });
+
+  it('should pass correct props to OtherPersonDetails', () => {
+    render(<OtherPeopleDetailsComponent />);
 
     expect(OtherPersonDetails).toHaveBeenCalledTimes(2);
-  });
-
-  it('should not render people details when there are no other people', () => {
-    selectorValues.set(selectors.hasOtherPeopleDetails, false);
-    selectorValues.set(selectors.getOtherPeopleDetails, []);
-    selectorValues.set(selectors.getOtherPeopleDetailsCount, 0);
-
-    render(<OtherPeopleDetailsComponent />);
-
-    expect(MultiBlock).not.toHaveBeenCalled();
-    expect(OtherPersonDetails).not.toHaveBeenCalled();
-  });
-
-  it('should pass the correct props to OtherPersonDetails', () => {
-    render(<OtherPeopleDetailsComponent />);
 
     expect(OtherPersonDetails).toHaveBeenNthCalledWith(
       1,
@@ -182,41 +256,12 @@ describe('OtherPeopleDetailsComponent', () => {
     );
   });
 
-  it('should add an other person when Yes is clicked', () => {
+  it('should update other people when adding or removing', () => {
     render(<OtherPeopleDetailsComponent />);
 
-    const { onClickYes } = AddDetailsOrSkip.mock.calls[0][0];
-    onClickYes();
+    const { handleAdd, handleRemove } =
+      MultiBlock.mock.calls[0][0];
 
-    expect(thunks.addOtherPerson).toHaveBeenCalledWith(
-      `${modelPath}.otherPeopleDetails`
-    );
-    expect(dispatch).toHaveBeenCalledWith({
-      type: 'add-other-person',
-    });
-  });
-
-  it('should reset the model and jump to the next question when No is clicked', () => {
-    render(<OtherPeopleDetailsComponent />);
-
-    const { onClickNo } = AddDetailsOrSkip.mock.calls[0][0];
-    onClickNo();
-
-    expect(sharedThunks.resetModelState).toHaveBeenCalledWith(
-      `${modelPath}.otherPeopleDetails`
-    );
-    expect(dispatch).toHaveBeenCalledWith({
-      type: 'reset-model-state',
-    });
-    expect(jumpToNextQuestionEx).toHaveBeenCalledWith(
-      '#addOrSkipOtherPeopleDetails'
-    );
-  });
-
-  it('should update other people when adding', () => {
-    render(<OtherPeopleDetailsComponent />);
-
-    const { handleAdd } = MultiBlock.mock.calls[0][0];
     handleAdd(1);
 
     expect(thunks.updateOtherPeople).toHaveBeenCalledWith(
@@ -224,15 +269,7 @@ describe('OtherPeopleDetailsComponent', () => {
       true,
       otherPeople
     );
-    expect(dispatch).toHaveBeenCalledWith({
-      type: 'update-other-people',
-    });
-  });
 
-  it('should update other people when removing', () => {
-    render(<OtherPeopleDetailsComponent />);
-
-    const { handleRemove } = MultiBlock.mock.calls[0][0];
     handleRemove(1);
 
     expect(thunks.updateOtherPeople).toHaveBeenCalledWith(
@@ -240,7 +277,12 @@ describe('OtherPeopleDetailsComponent', () => {
       false,
       otherPeople
     );
-    expect(dispatch).toHaveBeenCalledWith({
+
+    expect(dispatch).toHaveBeenCalledTimes(2);
+    expect(dispatch).toHaveBeenNthCalledWith(1, {
+      type: 'update-other-people',
+    });
+    expect(dispatch).toHaveBeenNthCalledWith(2, {
       type: 'update-other-people',
     });
   });
@@ -248,14 +290,41 @@ describe('OtherPeopleDetailsComponent', () => {
   it('should show the add link only for the last person before the maximum', () => {
     render(<OtherPeopleDetailsComponent />);
 
-    const { multiBlockItems } = MultiBlock.mock.calls[0][0];
+    const { multiBlockItems } =
+      MultiBlock.mock.calls[0][0];
 
     expect(
       multiBlockItems.map(item => item.showAddLink)
     ).toEqual([false, true]);
+
+    expect(
+      multiBlockItems.every(
+        item => item.showRemoveLink === true
+      )
+    ).toBe(true);
   });
 
-  it('should hide the add link when the maximum count is reached', () => {
+  it('should not render MultiBlock when there are no other people', () => {
+    selectorValues.set(
+      selectors.hasOtherPeopleDetails,
+      false
+    );
+    selectorValues.set(
+      selectors.getOtherPeopleDetails,
+      []
+    );
+    selectorValues.set(
+      selectors.getOtherPeopleDetailsCount,
+      0
+    );
+
+    render(<OtherPeopleDetailsComponent />);
+
+    expect(MultiBlock).not.toHaveBeenCalled();
+    expect(OtherPersonDetails).not.toHaveBeenCalled();
+  });
+
+  it('should hide the add link when maximum count is reached', () => {
     const people = Array.from(
       { length: MAX_ALLOWED_OTHER_PEOPLE_COUNT },
       (_, index) => ({
@@ -265,7 +334,10 @@ describe('OtherPeopleDetailsComponent', () => {
       })
     );
 
-    selectorValues.set(selectors.getOtherPeopleDetails, people);
+    selectorValues.set(
+      selectors.getOtherPeopleDetails,
+      people
+    );
     selectorValues.set(
       selectors.getOtherPeopleDetailsCount,
       MAX_ALLOWED_OTHER_PEOPLE_COUNT
@@ -273,19 +345,13 @@ describe('OtherPeopleDetailsComponent', () => {
 
     render(<OtherPeopleDetailsComponent />);
 
-    const { multiBlockItems } = MultiBlock.mock.calls[0][0];
+    const { multiBlockItems } =
+      MultiBlock.mock.calls[0][0];
 
     expect(
-      multiBlockItems[MAX_ALLOWED_OTHER_PEOPLE_COUNT - 1].showAddLink
+      multiBlockItems[
+        MAX_ALLOWED_OTHER_PEOPLE_COUNT - 1
+      ].showAddLink
     ).toBe(false);
-  });
-
-  it('should call the expected child components once per render', () => {
-    render(<OtherPeopleDetailsComponent />);
-
-    expect(Question).toHaveBeenCalledTimes(1);
-    expect(AddDetailsOrSkip).toHaveBeenCalledTimes(1);
-    expect(MultiBlock).toHaveBeenCalledTimes(1);
-    expect(OtherPersonDetails).toHaveBeenCalledTimes(2);
   });
 });
