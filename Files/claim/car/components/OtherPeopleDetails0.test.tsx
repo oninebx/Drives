@@ -1,13 +1,8 @@
 import * as React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-import {
-  OtherPeopleDetailsComponent,
-} from './OtherPeopleDetails';
-
-import { MultiBlock } from '~/common/components/dumb';
+import { OtherPeopleDetailsComponent } from './OtherPeopleDetails';
 import { jumpToNextQuestionEx } from '~/common/utilities';
-import { OtherPersonDetails } from '~/feature/claim/car/components/dumb';
 import {
   formPath,
   MAX_ALLOWED_OTHER_PEOPLE_COUNT,
@@ -15,18 +10,12 @@ import {
   selectors,
   thunks,
 } from '~/feature/claim/car/state';
-import {
-  AddDetailsOrSkip,
-  Question,
-} from '~/feature/claim/shared/components';
+
 import {
   selectors as sharedSelectors,
   thunks as sharedThunks,
 } from '~/feature/claim/shared/state';
-import {
-  useAppDispatch,
-  useAppSelector,
-} from '~/root/store';
+import { useAppDispatch, useAppSelector } from '~/root/store';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -247,6 +236,7 @@ describe('OtherPeopleDetailsComponent', () => {
         addressLine1: '2 Test Street',
         suburb: 'Auckland',
       },
+    }
   ];
 
   const claimType = 'Motor';
