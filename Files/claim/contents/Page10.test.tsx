@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import { Page1Component } from './Page1';
 
@@ -7,17 +7,31 @@ import type { Page1Props } from './Page1';
 
 import { routes } from '~/common/state';
 import { raiseClaimGAEvent } from '~/feature/claim/utils';
-import history from '~/root/history';
+
+/**
+ * ---------------------------------------------------------
+ * Mocks
+ * ---------------------------------------------------------
+ */
 
 const mockNavigate = jest.fn();
-const mockInitialise = jest.fn();
-const mockSetClaimTypeToContents = jest.fn();
-const mockSetBackToPreStepsPrevented = jest.fn();
-
 const mockT = jest.fn((key: string) => key);
+const mockFormFooter = jest.fn();
+
+const mockInitialise = jest.fn();
+const mockSetClaimTypeToContents =
+  jest.fn();
+const mockSetBackToPreStepsPrevented =
+  jest.fn();
 
 jest.mock('react-router', () => ({
   useNavigate: () => mockNavigate
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: mockT
+  })
 }));
 
 jest.mock('react-redux-form', () => ({
@@ -25,14 +39,11 @@ jest.mock('react-redux-form', () => ({
     children
   }: {
     children: React.ReactNode;
-  }) => <div data-testid="form">{children}</div>
-}));
-
-jest.mock('~/root/history', () => ({
-  __esModule: true,
-  default: {
-    push: jest.fn()
-  }
+  }) => (
+    <div data-testid="form">
+      {children}
+    </div>
+  )
 }));
 
 jest.mock('~/feature/claim/utils', () => ({
@@ -50,94 +61,228 @@ jest.mock('~/common/state', () => ({
 }));
 
 /**
- * Page1Component owns the conditional rendering.
+ * Mock state modules completely.
  *
- * Child component behaviour is covered by their own unit tests,
- * so they are intentionally mocked here.
+ * Selectors already have their own unit tests.
+ * Page1 tests only need controllable selector
+ * dependencies and do not test selector behaviour.
+ *
+ * Do NOT use requireActual here.
  */
-jest.mock('~/feature/claim/contents/components', () => ({
-  AlarmSet: () => (
-    <div data-testid="alarm-set" />
-  ),
-  AuthorityReportFire: () => (
-    <div data-testid="authority-report-fire" />
-  ),
-  AuthorityReportPolice: () => (
-    <div data-testid="authority-report-police" />
-  ),
-  ContentsEventLocation: () => (
-    <div data-testid="contents-event-location" />
-  ),
-  HouseLivable: () => (
-    <div data-testid="house-livable" />
-  ),
-  HouseLocked: () => (
-    <div data-testid="house-locked" />
-  ),
-  ItemsDiscoveredMissingDateTime: () => (
-    <div data-testid="items-discovered-missing-date-time" />
-  ),
-  ItemsLastSeenDateTime: () => (
-    <div data-testid="items-last-seen-date-time" />
-  ),
-  KeysStolen: () => (
-    <div data-testid="keys-stolen" />
-  ),
-  Occupancy: () => (
-    <div data-testid="occupancy" />
-  ),
-  OtherPeopleDetail: () => (
-    <div data-testid="other-people-detail" />
-  ),
-  VacantDate: () => (
-    <div data-testid="vacant-date" />
-  ),
-  VehicleLocked: () => (
-    <div data-testid="vehicle-locked" />
-  ),
-  VehicleParked: () => (
-    <div data-testid="vehicle-parked" />
-  ),
-  WhereWereItems: () => (
-    <div data-testid="where-were-items" />
-  )
+jest.mock('~/feature/claim/contents/state', () => ({
+  formPath: 'forms.contentsClaim.page1',
+
+  modelPath: 'contentsClaim',
+
+  thunks: {
+    initContentsPage1: jest.fn()
+  },
+
+  selectors: {
+    getClaim: jest.fn(),
+    getBaseState: jest.fn(),
+    getItemsDiscoveredMissingDate:
+      jest.fn(),
+    getLossDate: jest.fn(),
+
+    showEventLocationDescription:
+      jest.fn(),
+
+    showEventLocationSomewhereElse:
+      jest.fn(),
+
+    showVehicleParked: jest.fn(),
+    showOccupancy: jest.fn(),
+    showVacancyDate: jest.fn(),
+    showHouseLocked: jest.fn(),
+    showVehicleLocked: jest.fn(),
+    showAlarmSet: jest.fn(),
+    showKeysStolen: jest.fn(),
+
+    showItemsDiscoveredMissingAndLastSeenDates:
+      jest.fn(),
+
+    showWhereWereItemsAtTimeOfTheft:
+      jest.fn(),
+
+    showHouseLivable: jest.fn(),
+
+    showFireAuthorityReport:
+      jest.fn(),
+
+    showPoliceAuthorityReport:
+      jest.fn(),
+
+    showWitnesses: jest.fn(),
+
+    showOtherPeopleDetails:
+      jest.fn(),
+
+    getContentsRisk: jest.fn(),
+
+    showRiskAddressOption:
+      jest.fn(),
+
+    showEventLocation: jest.fn()
+  }
 }));
 
-jest.mock('~/feature/claim/shared/components', () => ({
-  EventDescription: () => (
-    <div data-testid="event-description" />
-  ),
-  EventLocation: () => (
-    <div data-testid="event-location" />
-  ),
-  EventLocationDescription: () => (
-    <div data-testid="event-location-description" />
-  ),
-  FloatingToolbar: () => (
-    <div data-testid="floating-toolbar" />
-  ),
-  FormFooter: () => (
-    <div data-testid="form-footer" />
-  ),
-  PreStepsSummary: () => (
-    <div data-testid="pre-steps-summary" />
-  ),
-  WitnessSection: () => (
-    <div data-testid="witness-section" />
-  )
+jest.mock('~/feature/claim/shared/state', () => ({
+  ClaimType: {
+    Contents: 'contents'
+  },
+
+  modelPath: 'claim',
+
+  thunks: {
+    setClaimTypeForPage1: jest.fn(),
+    setBackToPreStepsPrevented:
+      jest.fn()
+  },
+
+  selectors: {
+    getClaimType: jest.fn(),
+    getPolicyDescription: jest.fn(),
+    getBackToPreStepsPrevented:
+      jest.fn(),
+    getContentsRiskAddress: jest.fn(),
+    getClaimSharedState: jest.fn()
+  }
 }));
 
-jest.mock('~/feature/claim/shared/components/dumb', () => ({
-  ClaimNumber: ({
-    claimNumber
-  }: {
-    claimNumber: string;
-  }) => (
-    <div data-testid="claim-number">
-      {claimNumber}
-    </div>
-  )
-}));
+/**
+ * Child components are mocked because they have
+ * their own unit tests.
+ */
+jest.mock(
+  '~/feature/claim/contents/components',
+  () => ({
+    AlarmSet: () => (
+      <div data-testid="alarm-set" />
+    ),
+
+    AuthorityReportFire: () => (
+      <div data-testid="authority-report-fire" />
+    ),
+
+    AuthorityReportPolice: () => (
+      <div data-testid="authority-report-police" />
+    ),
+
+    ContentsEventLocation: () => (
+      <div data-testid="contents-event-location" />
+    ),
+
+    HouseLivable: () => (
+      <div data-testid="house-livable" />
+    ),
+
+    HouseLocked: () => (
+      <div data-testid="house-locked" />
+    ),
+
+    ItemsDiscoveredMissingDateTime:
+      () => (
+        <div data-testid="items-discovered-missing-date-time" />
+      ),
+
+    ItemsLastSeenDateTime: () => (
+      <div data-testid="items-last-seen-date-time" />
+    ),
+
+    KeysStolen: () => (
+      <div data-testid="keys-stolen" />
+    ),
+
+    Occupancy: () => (
+      <div data-testid="occupancy" />
+    ),
+
+    OtherPeopleDetail: () => (
+      <div data-testid="other-people-detail" />
+    ),
+
+    VacantDate: () => (
+      <div data-testid="vacant-date" />
+    ),
+
+    VehicleLocked: () => (
+      <div data-testid="vehicle-locked" />
+    ),
+
+    VehicleParked: () => (
+      <div data-testid="vehicle-parked" />
+    ),
+
+    WhereWereItems: () => (
+      <div data-testid="where-were-items" />
+    )
+  })
+);
+
+/**
+ * Shared child components are mocked because they
+ * have their own unit tests.
+ */
+jest.mock(
+  '~/feature/claim/shared/components',
+  () => ({
+    EventDescription: () => (
+      <div data-testid="event-description" />
+    ),
+
+    EventLocation: () => (
+      <div data-testid="event-location" />
+    ),
+
+    EventLocationDescription: () => (
+      <div data-testid="event-location-description" />
+    ),
+
+    FloatingToolbar: () => (
+      <div data-testid="floating-toolbar" />
+    ),
+
+    /**
+     * FormFooter is intentionally a dumb mock.
+     *
+     * We capture the props passed by Page1 so that
+     * the Page1 submit handler can be tested directly.
+     *
+     * We do NOT test FormFooter behaviour.
+     */
+    FormFooter: (props: unknown) => {
+      mockFormFooter(props);
+
+      return (
+        <div data-testid="form-footer" />
+      );
+    },
+
+    PreStepsSummary: () => (
+      <div data-testid="pre-steps-summary" />
+    ),
+
+    WitnessSection: () => (
+      <div data-testid="witness-section" />
+    )
+  })
+);
+
+jest.mock(
+  '~/feature/claim/shared/components/dumb',
+  () => ({
+    ClaimNumber: ({
+      claimNumber
+    }: {
+      claimNumber: string;
+    }) => (
+      <div data-testid="claim-number">
+        {claimNumber}
+      </div>
+    )
+  })
+);
 
 describe('Page1Component', () => {
   const claim = {
@@ -152,15 +297,15 @@ describe('Page1Component', () => {
   const createProps = (
     overrides: Partial<Page1Props> = {}
   ): Page1Props => ({
-    state: {
-      eventLocationAddress: undefined
-    } as Page1Props['state'],
-
     claim,
 
     claimType: 'contents',
 
     description: 'Test description',
+
+    state: {
+      eventLocationAddress: undefined
+    } as Page1Props['state'],
 
     missingDate: '2026-08-02',
 
@@ -168,36 +313,63 @@ describe('Page1Component', () => {
 
     backToPreStepsPrevented: true,
 
-    contentsRiskAddress: '1 Test Street',
+    contentsRiskAddress:
+      '1 Test Street',
 
     claimSharedState: {
       claimNumber: 'CLM123'
     } as Page1Props['claimSharedState'],
 
-    showEventLocationDescription: false,
-    showEventLocationSomewhereElse: false,
+    showEventLocationDescription:
+      false,
+
+    showEventLocationSomewhereElse:
+      false,
+
     showVehicleParked: false,
+
     showOccupancy: false,
+
     showVacancyDate: false,
+
     showHouseLocked: false,
+
     showVehicleLocked: false,
+
     showAlarmSet: false,
+
     showKeysStolen: false,
-    showItemsDiscoveredMissingAndLastSeenDates: false,
-    showWhereWereItemsAtTimeOfTheft: false,
+
+    showItemsDiscoveredMissingAndLastSeenDates:
+      false,
+
+    showWhereWereItemsAtTimeOfTheft:
+      false,
+
     showHouseLivable: false,
-    showFireAuthorityReport: false,
-    showPoliceAuthorityReport: false,
+
+    showFireAuthorityReport:
+      false,
+
+    showPoliceAuthorityReport:
+      false,
+
     showWitnesses: false,
-    showOtherPeopleDetails: false,
+
+    showOtherPeopleDetails:
+      false,
+
     showRiskAddressOption: false,
+
     showEventLocation: false,
 
     risk: {} as Page1Props['risk'],
 
     initialise: mockInitialise,
+
     setClaimTypeToContents:
       mockSetClaimTypeToContents,
+
     setBackToPreStepsPrevented:
       mockSetBackToPreStepsPrevented,
 
@@ -207,6 +379,16 @@ describe('Page1Component', () => {
 
     ...overrides
   });
+
+  const renderPage = (
+    overrides: Partial<Page1Props> = {}
+  ) => {
+    render(
+      <Page1Component
+        {...createProps(overrides)}
+      />
+    );
+  };
 
   const expectRendered = (
     testId: string
@@ -225,23 +407,23 @@ describe('Page1Component', () => {
   };
 
   const expectHeadingRendered = (
-    name: string
+    text: string
   ) => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name
+        name: text
       })
     ).toBeInTheDocument();
   };
 
   const expectHeadingNotRendered = (
-    name: string
+    text: string
   ) => {
     expect(
       screen.queryByRole('heading', {
         level: 2,
-        name
+        name: text
       })
     ).not.toBeInTheDocument();
   };
@@ -251,7 +433,10 @@ describe('Page1Component', () => {
 
     jest.useFakeTimers();
 
-    window.scrollTo = jest.fn();
+    Object.defineProperty(window, 'scrollTo', {
+      writable: true,
+      value: jest.fn()
+    });
   });
 
   afterEach(() => {
@@ -260,11 +445,7 @@ describe('Page1Component', () => {
 
   describe('basic rendering', () => {
     it('renders the basic page content', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
-      );
+      renderPage();
 
       expectRendered('form');
       expectRendered('claim-number');
@@ -275,11 +456,7 @@ describe('Page1Component', () => {
     });
 
     it('renders the claim number', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-      />
-      );
+      renderPage();
 
       expect(
         screen.getByTestId('claim-number')
@@ -287,11 +464,7 @@ describe('Page1Component', () => {
     });
 
     it('renders the page heading', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
-      );
+      renderPage();
 
       expectHeadingRendered(
         'claim/contents:headings.page1'
@@ -299,11 +472,7 @@ describe('Page1Component', () => {
     });
 
     it('renders the incident information heading', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
-      );
+      renderPage();
 
       expectHeadingRendered(
         'claim/contents:headings.incidentInformation'
@@ -311,70 +480,79 @@ describe('Page1Component', () => {
     });
   });
 
-  describe('pre steps summary', () => {
-    it('renders the policy description when available', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            description: 'Policy description'
-          })}
-        />
+  describe('conditional sections', () => {
+    it('does not render optional sections by default', () => {
+      renderPage();
+
+      expectNotRendered(
+        'contents-event-location'
       );
 
-      expectRendered('pre-steps-summary');
+      expectNotRendered(
+        'event-location-description'
+      );
+
+      expectNotRendered(
+        'event-location'
+      );
+
+      expectNotRendered(
+        'vehicle-parked'
+      );
+
+      expectNotRendered('occupancy');
+      expectNotRendered('vacant-date');
+      expectNotRendered('house-locked');
+      expectNotRendered('vehicle-locked');
+      expectNotRendered('alarm-set');
+      expectNotRendered('keys-stolen');
+
+      expectNotRendered(
+        'items-discovered-missing-date-time'
+      );
+
+      expectNotRendered(
+        'items-last-seen-date-time'
+      );
+
+      expectNotRendered(
+        'where-were-items'
+      );
+
+      expectNotRendered('house-livable');
+
+      expectNotRendered(
+        'authority-report-fire'
+      );
+
+      expectNotRendered(
+        'authority-report-police'
+      );
+
+      expectNotRendered(
+        'witness-section'
+      );
+
+      expectNotRendered(
+        'other-people-detail'
+      );
     });
 
-    it('uses the risk address when policy description is unavailable', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            description: '',
-            contentsRiskAddress:
-              '123 Queen Street'
-          })}
-        />
-      );
-
-      expectRendered('pre-steps-summary');
-    });
-  });
-
-  describe('event location', () => {
-    it('renders the contents event location when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocation: true
-          })}
-        />
-      );
+    it('renders ContentsEventLocation when enabled', () => {
+      renderPage({
+        showEventLocation: true
+      });
 
       expectRendered(
         'contents-event-location'
       );
     });
 
-    it('does not render the contents event location when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocation: false
-          })}
-      );
-
-      expectNotRendered(
-        'contents-event-location'
-      );
-    });
-
-    it('renders event location description when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocationDescription: true
-          })}
-        />
-      );
+    it('renders EventLocationDescription when enabled', () => {
+      renderPage({
+        showEventLocationDescription:
+          true
+      });
 
       expectRendered(
         'event-location-description'
@@ -382,192 +560,100 @@ describe('Page1Component', () => {
     });
 
     it('renders EventLocation when somewhere else is selected', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocationSomewhereElse:
-              true
-          })}
-        />
-      );
+      renderPage({
+        showEventLocationSomewhereElse:
+          true
+      });
 
       expectRendered('event-location');
     });
 
-    it('does not render EventLocation when somewhere else is not selected', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocationSomewhereElse:
-              false
-          })}
-        />
+    it('renders vehicle and property sections when enabled', () => {
+      renderPage({
+        showVehicleParked: true,
+        showOccupancy: true,
+        showVacancyDate: true,
+        showHouseLocked: true,
+        showVehicleLocked: true,
+        showAlarmSet: true,
+        showKeysStolen: true,
+        showHouseLivable: true
+      });
+
+      expectRendered('vehicle-parked');
+      expectRendered('occupancy');
+      expectRendered('vacant-date');
+      expectRendered('house-locked');
+      expectRendered('vehicle-locked');
+      expectRendered('alarm-set');
+      expectRendered('keys-stolen');
+      expectRendered('house-livable');
+    });
+
+    it('renders missing and last seen date sections when enabled', () => {
+      renderPage({
+        showItemsDiscoveredMissingAndLastSeenDates:
+          true
+      });
+
+      expectRendered(
+        'items-discovered-missing-date-time'
       );
 
-      expectNotRendered('event-location');
+      expectRendered(
+        'items-last-seen-date-time'
+      );
     });
-  });
 
-  describe('vehicle and property sections', () => {
-    it.each([
-      [
-        'showVehicleParked',
-        'vehicle-parked'
-      ],
-      [
-        'showOccupancy',
-        'occupancy'
-      ],
-      [
-        'showVacancyDate',
-        'vacant-date'
-      ],
-      [
-        'showHouseLocked',
-        'house-locked'
-      ],
-      [
-        'showVehicleLocked',
-        'vehicle-locked'
-      ],
-      [
-        'showAlarmSet',
-        'alarm-set'
-      ],
-      [
-        'showKeysStolen',
-        'keys-stolen'
-      ],
-      [
-        'showHouseLivable',
-        'house-livable'
-      ],
-      [
-        'showPoliceAuthorityReport',
+    it('renders WhereWereItems when date sections and theft location are enabled', () => {
+      renderPage({
+        showItemsDiscoveredMissingAndLastSeenDates:
+          true,
+        showWhereWereItemsAtTimeOfTheft:
+          true
+      });
+
+      expectRendered(
+        'items-discovered-missing-date-time'
+      );
+
+      expectRendered(
+        'items-last-seen-date-time'
+      );
+
+      expectRendered(
+        'where-were-items'
+      );
+    });
+
+    it('does not render WhereWereItems when date sections are disabled', () => {
+      renderPage({
+        showItemsDiscoveredMissingAndLastSeenDates:
+          false,
+        showWhereWereItemsAtTimeOfTheft:
+          true
+      });
+
+      expectNotRendered(
+        'where-were-items'
+      );
+    });
+
+    it('renders police authority report when enabled', () => {
+      renderPage({
+        showPoliceAuthorityReport:
+          true
+      });
+
+      expectRendered(
         'authority-report-police'
-      ],
-      [
-        'showOtherPeopleDetails',
-        'other-people-detail'
-      ]
-    ] as const)(
-      'renders %s when enabled',
-      (prop, testId) => {
-        render(
-          <Page1Component
-            {...createProps({
-              [prop]: true
-            })}
-          />
-        );
-
-        expectRendered(testId);
-      }
-    );
-  });
-
-  describe('missing and last seen dates', () => {
-    it('renders both date sections when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showItemsDiscoveredMissingAndLastSeenDates:
-              true
-          })}
-        />
-      );
-
-      expectRendered(
-        'items-discovered-missing-date-time'
-      );
-
-      expectRendered(
-        'items-last-seen-date-time'
       );
     });
 
-    it('does not render the date sections when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showItemsDiscoveredMissingAndLastSeenDates:
-              false
-          })}
-      );
-
-      expectNotRendered(
-        'items-discovered-missing-date-time'
-      );
-
-      expectNotRendered(
-        'items-last-seen-date-time'
-      );
-    });
-
-    it('renders where were items when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showItemsDiscoveredMissingAndLastSeenDates:
-              true,
-            showWhereWereItemsAtTimeOfTheft:
-              true
-          })}
-        />
-      );
-
-      expectRendered(
-        'where-were-items'
-      );
-    });
-
-    it('does not render where were items when date section is disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showItemsDiscoveredMissingAndLastSeenDates:
-              false,
-            showWhereWereItemsAtTimeOfTheft:
-              true
-          })}
-        />
-      );
-
-      expectNotRendered(
-        'where-were-items'
-      );
-    });
-  });
-
-  describe('fire authority report', () => {
-    it('does not render the fire section when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showFireAuthorityReport:
-              false
-          })}
-        />
-      );
-
-      expectHeadingNotRendered(
-        'claim/contents:headings.fire'
-      );
-
-      expectNotRendered(
-        'authority-report-fire'
-      );
-    });
-
-    it('renders the fire section when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showFireAuthorityReport:
-              true
-          })}
-        />
-      );
+    it('renders fire authority report when enabled', () => {
+      renderPage({
+        showFireAuthorityReport: true
+      });
 
       expectHeadingRendered(
         'claim/contents:headings.fire'
@@ -575,37 +661,13 @@ describe('Page1Component', () => {
 
       expectRendered(
         'authority-report-fire'
-      );
-    });
-  });
-
-  describe('witness section', () => {
-    it('does not render witnesses when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showWitnesses: false
-          })}
-        />
-      );
-
-      expectHeadingNotRendered(
-        'claim/contents:headings.witnesses'
-      );
-
-      expectNotRendered(
-        'witness-section'
       );
     });
 
     it('renders witnesses when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showWitnesses: true
-          })}
-        />
-      );
+      renderPage({
+        showWitnesses: true
+      });
 
       expectHeadingRendered(
         'claim/contents:headings.witnesses'
@@ -613,17 +675,52 @@ describe('Page1Component', () => {
 
       expectRendered(
         'witness-section'
+      );
+    });
+
+    it('renders other people details when enabled', () => {
+      renderPage({
+        showOtherPeopleDetails: true
+      });
+
+      expectHeadingRendered(
+        'claim/contents:headings.otherPeople'
+      );
+
+      expectRendered(
+        'other-people-detail'
+      );
+    });
+  });
+
+  describe('pre steps summary', () => {
+    it('renders PreStepsSummary when description is available', () => {
+      renderPage({
+        description:
+          'Policy description'
+      });
+
+      expectRendered(
+        'pre-steps-summary'
+      );
+    });
+
+    it('renders PreStepsSummary when description is unavailable', () => {
+      renderPage({
+        description: '',
+        contentsRiskAddress:
+          '123 Queen Street'
+      });
+
+      expectRendered(
+        'pre-steps-summary'
       );
     });
   });
 
   describe('componentDidMount', () => {
-    it('initialises the page on mount', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
-      );
+    it('initialises page 1 on mount', () => {
+      renderPage();
 
       expect(
         mockInitialise
@@ -639,12 +736,41 @@ describe('Page1Component', () => {
       );
     });
 
-    it('sets the claim type to contents on mount', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
+    it('initialises page 1 with the current props', () => {
+      const lossDate = new Date(
+        '2026-08-10T03:00:00.000Z'
       );
+
+      const missingDate =
+        '2026-08-11';
+
+      const risk = {
+        policyNumber: 'POL123'
+      } as Page1Props['risk'];
+
+      renderPage({
+        lossDate,
+        missingDate,
+        risk,
+        showRiskAddressOption: true
+      });
+
+      expect(
+        mockInitialise
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        mockInitialise
+      ).toHaveBeenCalledWith(
+        lossDate,
+        missingDate,
+        true,
+        risk
+      );
+    });
+
+    it('sets the claim type to contents on mount', () => {
+      renderPage();
 
       expect(
         mockSetClaimTypeToContents
@@ -659,15 +785,11 @@ describe('Page1Component', () => {
       );
     });
 
-    it('prevents navigating back when it has not already been prevented', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            backToPreStepsPrevented:
-              false
-          })}
-        />
-      );
+    it('prevents back navigation when it has not already been prevented', () => {
+      renderPage({
+        backToPreStepsPrevented:
+          false
+      });
 
       expect(
         history.push
@@ -685,15 +807,11 @@ describe('Page1Component', () => {
       );
     });
 
-    it('does not prevent navigating back when already prevented', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            backToPreStepsPrevented:
-              true
-          })}
-        />
-      );
+    it('does not prevent back navigation when already prevented', () => {
+      renderPage({
+        backToPreStepsPrevented:
+          true
+      });
 
       expect(
         history.push
@@ -703,39 +821,104 @@ describe('Page1Component', () => {
         mockSetBackToPreStepsPrevented
       ).not.toHaveBeenCalled();
     });
+  });
 
+  describe('scroll behaviour', () => {
     it('scrolls to the top after mount', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
+      const scrollTo = jest.spyOn(
+        window,
+        'scrollTo'
       );
 
+      renderPage();
+
       expect(
-        window.scrollTo
+        scrollTo
       ).not.toHaveBeenCalled();
 
       jest.runAllTimers();
 
       expect(
-        window.scrollTo
+        scrollTo
       ).toHaveBeenCalledTimes(1);
 
       expect(
-        window.scrollTo
+        scrollTo
       ).toHaveBeenCalledWith(0, 0);
     });
   });
 
-  describe('next action', () => {
+  describe('FormFooter', () => {
     it('renders FormFooter', () => {
-      render(
-        <Page1Component
-          {...createProps()}
-        />
-      );
+      renderPage();
 
       expectRendered('form-footer');
+
+      expect(
+        mockFormFooter
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the expected props to FormFooter', () => {
+      renderPage();
+
+      expect(
+        mockFormFooter
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          disabled: false,
+          validating: false,
+          submitButtonLabel:
+            'claim:footer.nextButton.contents.page1',
+          handleSubmit:
+            expect.any(Function)
+        })
+      );
+    });
+  });
+
+  describe('next action', () => {
+    it('raises the GA event when FormFooter submit handler is invoked', async () => {
+      renderPage();
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => void;
+        };
+
+      formFooterProps.handleSubmit();
+
+      expect(
+        raiseClaimGAEvent
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        raiseClaimGAEvent
+      ).toHaveBeenCalledWith(
+        'CLM123',
+        'contents'
+      );
+    });
+
+    it('navigates to contents page 2 when FormFooter submit handler is invoked', () => {
+      renderPage();
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => void;
+        };
+
+      formFooterProps.handleSubmit();
+
+      expect(
+        mockNavigate
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        mockNavigate
+      ).toHaveBeenCalledWith(
+        routes.CLAIM.CONTENTS.PAGE2
+      );
     });
   });
 });
