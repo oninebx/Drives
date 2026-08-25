@@ -1,14 +1,18 @@
  Test suite failed to run
+Page1Component › componentDidMount › does not prevent back navigation when already prevented
 
-    TypeError: (0 , _translation.translate) is not a function
+    expect(received).not.toHaveBeenCalled()
 
-      285 |   mapStateToProps,
-      286 |   mapDispatchToProps
-    > 287 | )(translate(['base', 'claim', 'claim/contents'])(Page1HookWrapper));
-          |            ^
-      288 |
-      289 | export default Page1;
-      290 |
+    Matcher error: received value must be a mock or spy function
 
-      at Object.<anonymous> (src/feature/claim/contents/views/Page1.tsx:287:12)
-      at Object.<anonymous> (src/feature/claim/contents/views/Page10.test.tsx:180:16)
+    Received has value: undefined
+
+      820 |       expect(
+      821 |         history.push
+    > 822 |       ).not.toHaveBeenCalled();
+          |             ^
+      823 |
+      824 |       expect(
+      825 |         mockSetBackToPreStepsPrevented
+
+      at Object.toHaveBeenCalled (src/feature/claim/contents/views/Page10.test.tsx:822:13)
