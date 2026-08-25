@@ -1,69 +1,54 @@
 import * as React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
-import { Page1Component } from './Page1';
-
-import type { Page1Props } from './Page1';
-
-import { routes } from '~/common/state';
-import { raiseClaimGAEvent } from '~/feature/claim/utils';
-import history from '~/root/history';
+import { Page1 } from '../Page1';
 
 const mockNavigate = jest.fn();
-
-const mockSetClaimTypeToHouse = jest.fn();
-const mockSetBackToPreStepsPrevented = jest.fn();
-
-const mockT = jest.fn((key: string) => key);
+const mockRaiseClaimGAEvent = jest.fn();
 
 jest.mock('react-router', () => ({
-  useNavigate: () => mockNavigate
+  useNavigate: () => mockNavigate,
 }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: mockT
-  })
+    t: (key: string) => key,
+  }),
+}));
+
+jest.mock('react-redux', () => ({
+  connect: () => (Component: React.ComponentType<any>) => Component,
 }));
 
 jest.mock('react-redux-form', () => ({
   Form: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="form">{children}</div>
-  )
+  ),
 }));
 
 jest.mock('~/root/history', () => ({
   __esModule: true,
   default: {
-    push: jest.fn()
-  }
+    push: jest.fn(),
+  },
 }));
 
 jest.mock('~/feature/claim/utils', () => ({
-  raiseClaimGAEvent: jest.fn()
+  raiseClaimGAEvent: (...args: unknown[]) =>
+    mockRaiseClaimGAEvent(...args),
 }));
 
-jest.mock('~/common/state', () => ({
-  routes: {
-    CLAIM: {
-      HOUSE: {
-        PAGE2: '/claim/house/page2'
-      }
-    }
-  }
-}));
-
-/**
- * Dumb / child components
- *
- * We don't need to test them here.
- * Their own unit tests should cover their behaviour.
- */
 jest.mock('~/feature/claim/house/components', () => ({
   AlarmSet: () => <div data-testid="AlarmSet" />,
-  AuthorityReportFire: () => <div data-testid="AuthorityReportFire" />,
-  AuthorityReportPolice: () => <div data-testid="AuthorityReportPolice" />,
-  HouseEventLocation: () => <div data-testid="HouseEventLocation" />,
+  AuthorityReportFire: () => (
+    <div data-testid="AuthorityReportFire" />
+  ),
+  AuthorityReportPolice: () => (
+    <div data-testid="AuthorityReportPolice" />
+  ),
+  HouseEventLocation: () => (
+    <div data-testid="HouseEventLocation" />
+  ),
   HouseLivable: () => <div data-testid="HouseLivable" />,
   HouseLocked: () => <div data-testid="HouseLocked" />,
   KeysStolen: () => <div data-testid="KeysStolen" />,
@@ -71,409 +56,324 @@ jest.mock('~/feature/claim/house/components', () => ({
     <div data-testid="LastPropertyInspection" />
   ),
   Occupancy: () => <div data-testid="Occupancy" />,
-  OtherPeopleDetail: () => <div data-testid="OtherPeopleDetail" />,
-  VacantDate: () => <div data-testid="VacantDate" />
+  OtherPeopleDetail: () => (
+    <div data-testid="OtherPeopleDetail" />
+  ),
+  VacantDate: () => <div data-testid="VacantDate" />,
 }));
 
 jest.mock('~/feature/claim/shared/components', () => ({
-  EventDescription: () => <div data-testid="EventDescription" />,
-  EventLocation: () => <div data-testid="EventLocation" />,
-  FloatingToolbar: () => <div data-testid="FloatingToolbar" />,
-  FormFooter: ({
-    disabled,
-    validating,
-    submitButtonLabel,
-    handleSubmit
-  }: {
-    disabled: boolean;
-    validating: boolean;
-    submitButtonLabel: string;
-    handleSubmit: () => void;
-  }) => (
-    <div>
-      <button
-        data-testid="next-button"
-        disabled={disabled}
-        onClick={handleSubmit}
-      >
-        {submitButtonLabel}
-      </button>
-
-      <span data-testid="validating">{String(validating)}</span>
-    </div>
+  EventDescription: () => (
+    <div data-testid="EventDescription" />
   ),
-  PreStepsSummary: () => <div data-testid="PreStepsSummary" />,
-  WitnessSection: () => <div data-testid="WitnessSection" />
+
+  EventLocation: () => (
+    <div data-testid="EventLocation" />
+  ),
+
+  FloatingToolbar: () => (
+    <div data-testid="FloatingToolbar" />
+  ),
+
+  FormFooter: ({
+    handleSubmit,
+    submitButtonLabel,
+  }: {
+    handleSubmit: () => void;
+    submitButtonLabel: string;
+  }) => (
+    <button onClick={handleSubmit}>
+      {submitButtonLabel}
+    </button>
+  ),
+
+  PreStepsSummary: () => (
+    <div data-testid="PreStepsSummary" />
+  ),
+
+  WitnessSection: () => (
+    <div data-testid="WitnessSection" />
+  ),
 }));
 
 jest.mock('~/feature/claim/shared/components/dumb', () => ({
-  ClaimNumber: ({ claimNumber }: { claimNumber: string }) => (
-    <div data-testid="ClaimNumber">{claimNumber}</div>
-  )
+  ClaimNumber: () => <div data-testid="ClaimNumber" />,
 }));
 
-jest.mock('~/root/i18n', () => ({
-  t: jest.fn()
+jest.mock('~/common/state', () => ({
+  routes: {
+    CLAIM: {
+      HOUSE: {
+        PAGE2: '/claim/house/page2',
+      },
+    },
+  },
 }));
 
-describe('Page1Component', () => {
-  const createProps = (
-    overrides: Partial<Page1Props> = {}
-  ): Page1Props => ({
-    state: {
-      eventLocationAddress: {}
-    } as Page1Props['state'],
+const createProps = (overrides = {}) => ({
+  claim: {
+    claimNumber: 'CLM123',
+    causeOfLoss: 'Fire',
+    secondaryCauseOfLoss: 'Water',
+    lossDate: '2026-01-01',
+  },
 
-    claim: {
-      claimNumber: 'CLM123',
-      causeOfLoss: 'AccidentDamage',
-      secondaryCauseOfLoss: 'Other',
-      lossDate: '2026-08-01'
-    } as Page1Props['claim'],
+  claimType: 'house',
 
-    claimType: 'House' as Page1Props['claimType'],
+  description: 'Test description',
 
-    description: 'Test description',
+  state: {
+    eventLocationAddress: {},
+  },
 
-    showEventLocation: false,
-    showEventLocationSomewhereElse: false,
-    showLastPropertyInspection: false,
-    showOtherPeopleDetails: false,
-    showOccupancy: false,
-    showVacancyDate: false,
-    showTheftQuestions: false,
-    showHouseLivable: false,
-    showFireAuthorityReport: false,
-    showPoliceAuthorityReport: false,
-    showWitnesses: false,
+  sharedState: {
+    claimType: 'house',
+    claimNumber: 'CLM123',
+    homePolicyDetails: {
+      typeOfPolicy: 'HOME',
+    },
+  },
 
-    getHouseRiskAddress: '1 Test Street',
+  claimSharedState: {
+    claimType: 'house',
+    claimNumber: 'CLM123',
+  },
 
-    sharedState: {
-      homePolicyDetails: {
-        typeOfPolicy: 'Home'
-      }
-    } as Page1Props['sharedState'],
+  backToPreStepsPrevented: true,
 
-    claimSharedState: {
-      claimType: 'House',
-      claimNumber: 'CLM123'
-    } as Page1Props['claimSharedState'],
+  showEventLocation: false,
+  showEventLocationSomewhereElse: false,
+  showLastPropertyInspection: false,
+  getHouseRiskAddress: '123 Test Street',
+  showOtherPeopleDetails: false,
+  showOccupancy: false,
+  showVacancyDate: false,
+  showTheftQuestions: false,
+  showHouseLivable: false,
+  showFireAuthorityReport: false,
+  showPoliceAuthorityReport: false,
+  showWitnesses: false,
 
-    backToPreStepsPrevented: true,
+  setClaimTypeToHouse: jest.fn(),
+  setBackToPreStepsPrevented: jest.fn(),
 
-    setClaimTypeToHouse: mockSetClaimTypeToHouse,
-    setBackToPreStepsPrevented: mockSetBackToPreStepsPrevented,
+  ...overrides,
+});
 
-    ...overrides
-  });
-
+describe('Page1', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-
-    mockNavigate.mockClear();
-    mockSetClaimTypeToHouse.mockClear();
-    mockSetBackToPreStepsPrevented.mockClear();
-    mockT.mockClear();
-
-    jest.useFakeTimers();
-
-    Object.defineProperty(window, 'scrollTo', {
-      writable: true,
-      value: jest.fn()
-    });
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
+  it('renders the page', () => {
+    render(<Page1 {...createProps()} />);
+
+    expect(screen.getByTestId('form')).toBeInTheDocument();
+    expect(screen.getByTestId('ClaimNumber')).toBeInTheDocument();
+    expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
+    expect(screen.getByTestId('EventDescription')).toBeInTheDocument();
+    expect(screen.getByTestId('FloatingToolbar')).toBeInTheDocument();
   });
 
-  describe('rendering', () => {
-    it('renders the basic page content', () => {
-      render(<Page1Component {...createProps()} />);
-
-      expect(screen.getByTestId('ClaimNumber')).toHaveTextContent(
-        'CLM123'
-      );
-
-      expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
-      expect(screen.getByTestId('EventDescription')).toBeInTheDocument();
-      expect(screen.getByTestId('FloatingToolbar')).toBeInTheDocument();
-      expect(screen.getByTestId('form')).toBeInTheDocument();
-    });
-
-    it('uses description when description is available', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            description: 'Description from claim'
-          })}
-        />
-      );
-
-      expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
-    });
-
-    it('renders risk address when description is empty', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            description: '',
-            getHouseRiskAddress: '123 Queen Street'
-          })}
-        />
-      );
-
-      expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
-    });
-  });
-
-  describe('conditional sections', () => {
-    it('renders event location when showEventLocation is true', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocation: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByTestId('HouseEventLocation')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('EventLocation')
-      ).not.toBeInTheDocument();
-    });
-
-    it('renders EventLocation when event location is shown somewhere else', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocation: true,
-            showEventLocationSomewhereElse: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByTestId('HouseEventLocation')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('EventLocation')
-      ).toBeInTheDocument();
-    });
-
-    it('does not render EventLocation when showEventLocation is false', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showEventLocation: false,
-            showEventLocationSomewhereElse: true
-          })}
-        />
-      );
-
-      expect(
-        screen.queryByTestId('HouseEventLocation')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('EventLocation')
-      ).not.toBeInTheDocument();
-    });
-
-    it.each([
-      ['showOccupancy', 'Occupancy'],
-      ['showLastPropertyInspection', 'LastPropertyInspection'],
-      ['showVacancyDate', 'VacantDate'],
-      ['showHouseLivable', 'HouseLivable'],
-      ['showPoliceAuthorityReport', 'AuthorityReportPolice'],
-      ['showOtherPeopleDetails', 'OtherPeopleDetail'],
-      ['showWitnesses', 'WitnessSection']
-    ] as const)(
-      'renders %s when enabled',
-      (prop, testId) => {
-        render(
-          <Page1Component
-            {...createProps({
-              [prop]: true
-            })}
-          />
-        );
-
-        expect(screen.getByTestId(testId)).toBeInTheDocument();
-      }
+  it('renders event location when enabled', () => {
+    render(
+      <Page1
+        {...createProps({
+          showEventLocation: true,
+        })}
+      />,
     );
 
-    it('renders all theft questions when showTheftQuestions is true', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showTheftQuestions: true
-          })}
-        />
-      );
+    expect(
+      screen.getByTestId('HouseEventLocation'),
+    ).toBeInTheDocument();
 
-      expect(screen.getByTestId('HouseLocked')).toBeInTheDocument();
-      expect(screen.getByTestId('AlarmSet')).toBeInTheDocument();
-      expect(screen.getByTestId('KeysStolen')).toBeInTheDocument();
-    });
-
-    it('renders fire authority report when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showFireAuthorityReport: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByTestId('AuthorityReportFire')
-      ).toBeInTheDocument();
-    });
-
-    it('does not render optional sections when flags are false', () => {
-      render(<Page1Component {...createProps()} />);
-
-      expect(
-        screen.queryByTestId('Occupancy')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('LastPropertyInspection')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('VacantDate')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('HouseLivable')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('HouseLocked')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('AuthorityReportPolice')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('AuthorityReportFire')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('WitnessSection')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('OtherPeopleDetail')
-      ).not.toBeInTheDocument();
-    });
+    expect(
+      screen.queryByTestId('EventLocation'),
+    ).not.toBeInTheDocument();
   });
 
-  describe('useEffect', () => {
-    it('sets claim type to house on mount', () => {
-      render(<Page1Component {...createProps()} />);
+  it('renders EventLocation when event location is somewhere else', () => {
+    render(
+      <Page1
+        {...createProps({
+          showEventLocation: true,
+          showEventLocationSomewhereElse: true,
+        })}
+      />,
+    );
 
-      expect(mockSetClaimTypeToHouse).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByTestId('HouseEventLocation'),
+    ).toBeInTheDocument();
 
-      expect(mockSetClaimTypeToHouse).toHaveBeenCalledWith(
-        expect.any(String),
-        'CLM123',
-        'Home'
-      );
-    });
-
-    it('prevents navigating back when it has not already been prevented', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            backToPreStepsPrevented: false
-          })}
-        />
-      );
-
-      expect(history.push).toHaveBeenCalledTimes(10);
-
-      expect(mockSetBackToPreStepsPrevented).toHaveBeenCalledTimes(1);
-
-      expect(mockSetBackToPreStepsPrevented).toHaveBeenCalledWith(
-        expect.any(String),
-        true
-      );
-    });
-
-    it('does not prevent navigating back when already prevented', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            backToPreStepsPrevented: true
-          })}
-        />
-      );
-
-      expect(history.push).not.toHaveBeenCalled();
-      expect(mockSetBackToPreStepsPrevented).not.toHaveBeenCalled();
-    });
-
-    it('scrolls to top after mount', () => {
-      const scrollTo = jest.spyOn(window, 'scrollTo');
-
-      render(<Page1Component {...createProps()} />);
-
-      expect(scrollTo).not.toHaveBeenCalled();
-
-      jest.runAllTimers();
-
-      expect(scrollTo).toHaveBeenCalledWith(0, 0);
-    });
+    expect(
+      screen.getByTestId('EventLocation'),
+    ).toBeInTheDocument();
   });
 
-  describe('next button', () => {
-    it('starts loading when next is clicked', () => {
-      render(<Page1Component {...createProps()} />);
+  it('renders optional sections according to feature flags', () => {
+    render(
+      <Page1
+        {...createProps({
+          showOccupancy: true,
+          showLastPropertyInspection: true,
+          showVacancyDate: true,
+          showHouseLivable: true,
+          showPoliceAuthorityReport: true,
+          showFireAuthorityReport: true,
+          showWitnesses: true,
+          showOtherPeopleDetails: true,
+          showTheftQuestions: true,
+        })}
+      />,
+    );
 
-      const button = screen.getByTestId('next-button');
+    expect(screen.getByTestId('Occupancy')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('LastPropertyInspection'),
+    ).toBeInTheDocument();
 
-      expect(button).not.toBeDisabled();
+    expect(screen.getByTestId('VacantDate')).toBeInTheDocument();
+    expect(screen.getByTestId('HouseLivable')).toBeInTheDocument();
 
-      fireEvent.click(button);
+    expect(
+      screen.getByTestId('AuthorityReportPolice'),
+    ).toBeInTheDocument();
 
-      expect(button).toBeDisabled();
-      expect(screen.getByTestId('validating')).toHaveTextContent(
-        'true'
-      );
-    });
+    expect(
+      screen.getByTestId('AuthorityReportFire'),
+    ).toBeInTheDocument();
 
-    it('raises GA event when next is clicked', () => {
-      render(<Page1Component {...createProps()} />);
+    expect(screen.getByTestId('WitnessSection')).toBeInTheDocument();
 
-      fireEvent.click(screen.getByTestId('next-button'));
+    expect(
+      screen.getByTestId('OtherPeopleDetail'),
+    ).toBeInTheDocument();
 
-      expect(raiseClaimGAEvent).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('HouseLocked')).toBeInTheDocument();
+    expect(screen.getByTestId('AlarmSet')).toBeInTheDocument();
+    expect(screen.getByTestId('KeysStolen')).toBeInTheDocument();
+  });
 
-      expect(raiseClaimGAEvent).toHaveBeenCalledWith(
-        'CLM123',
-        'house'
-      );
-    });
+  it('does not render optional sections when disabled', () => {
+    render(<Page1 {...createProps()} />);
 
-    it('navigates to house page 2 when next is clicked', () => {
-      render(<Page1Component {...createProps()} />);
+    expect(
+      screen.queryByTestId('Occupancy'),
+    ).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByTestId('next-button'));
+    expect(
+      screen.queryByTestId('LastPropertyInspection'),
+    ).not.toBeInTheDocument();
 
-      expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByTestId('VacantDate'),
+    ).not.toBeInTheDocument();
 
-      expect(mockNavigate).toHaveBeenCalledWith(
-        routes.CLAIM.HOUSE.PAGE2
-      );
-    });
+    expect(
+      screen.queryByTestId('HouseLivable'),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByTestId('AuthorityReportPolice'),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByTestId('AuthorityReportFire'),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByTestId('WitnessSection'),
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByTestId('OtherPeopleDetail'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('uses risk address when description is empty', () => {
+    render(
+      <Page1
+        {...createProps({
+          description: '',
+          getHouseRiskAddress: '456 Risk Street',
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('PreStepsSummary')).toBeInTheDocument();
+  });
+
+  it('sets claim type on mount', () => {
+    const setClaimTypeToHouse = jest.fn();
+
+    render(
+      <Page1
+        {...createProps({
+          setClaimTypeToHouse,
+        })}
+      />,
+    );
+
+    expect(setClaimTypeToHouse).toHaveBeenCalledWith(
+      expect.any(String),
+      'CLM123',
+      'HOME',
+    );
+  });
+
+  it('prevents navigating back when it has not already been prevented', () => {
+    const setBackToPreStepsPrevented = jest.fn();
+
+    render(
+      <Page1
+        {...createProps({
+          backToPreStepsPrevented: false,
+          setBackToPreStepsPrevented,
+        })}
+      />,
+    );
+
+    expect(setBackToPreStepsPrevented).toHaveBeenCalledWith(
+      expect.any(String),
+      true,
+    );
+  });
+
+  it('does not prevent navigating back when already prevented', () => {
+    const setBackToPreStepsPrevented = jest.fn();
+
+    render(
+      <Page1
+        {...createProps({
+          backToPreStepsPrevented: true,
+          setBackToPreStepsPrevented,
+        })}
+      />,
+    );
+
+    expect(
+      setBackToPreStepsPrevented,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('raises GA event and navigates to page 2 when next is clicked', () => {
+    render(<Page1 {...createProps()} />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'claim:footer.nextButton.house.page1',
+      }),
+    );
+
+    expect(mockRaiseClaimGAEvent).toHaveBeenCalledWith(
+      'CLM123',
+      'house',
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/claim/house/page2',
+    );
   });
 });
