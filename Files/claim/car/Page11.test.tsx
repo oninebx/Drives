@@ -558,3 +558,171 @@ describe('Page1Component', () => {
     });
   });
 });
+
+
+
+import * as React from 'react';
+import { render } from '@testing-library/react';
+
+import { Page1Loader } from './Page1';
+
+import type { Page1Props } from './Page1';
+
+const mockInitialisePage1 = jest.fn();
+
+describe('Page1Loader', () => {
+  const claim = {
+    claimNumber: 'CLM123',
+    causeOfLoss: 'accidentWhileDriving',
+    secondaryCauseOfLoss: 'animal',
+    lossDate: new Date('2026-08-01T02:45:00.000Z')
+  } as Page1Props['claim'];
+
+  const vehicleMakes = ['Toyota', 'Mazda'];
+
+  const createProps = (
+    overrides: Partial<Page1Props> = {}
+  ): Page1Props => ({
+    claim,
+
+    claimType: 'car',
+
+    description: 'Test description',
+
+    state: {
+      eventLocationAddress: undefined
+    } as Page1Props['state'],
+
+    showTheftQuestions: false,
+    showYourDriver: false,
+    showOtherPersonDetails: false,
+    showPoliceAttend: false,
+    showFireAuthorityReport: false,
+    showAuthorityReport: false,
+    showOtherDrivers: false,
+    isOtherDriverInvolved: false,
+    showWitness: false,
+
+    missingDate: '2026-08-02',
+
+    lossDate: claim.lossDate,
+
+    vehicleMakes,
+
+    backToPreStepsPrevented: false,
+
+    getEventLocationHeaderLabel:
+      'accidentInformation',
+
+    getEventLocationLabel:
+      'accidentWhileDriving.search',
+
+    initialisePage1: mockInitialisePage1,
+
+    ...overrides
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+
+    Object.defineProperty(window, 'scrollTo', {
+      writable: true,
+      value: jest.fn()
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('initialisation', () => {
+    it('initialises page 1 on mount', () => {
+      render(
+        <Page1Loader
+          {...createProps()}
+        />
+      );
+
+      expect(
+        mockInitialisePage1
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        mockInitialisePage1
+      ).toHaveBeenCalledWith(
+        claim.lossDate,
+        '2026-08-02',
+        vehicleMakes,
+        claim,
+        false
+      );
+    });
+
+    it('initialises page 1 with the current props', () => {
+      const lossDate = new Date(
+        '2026-08-10T03:00:00.000Z'
+      );
+
+      const missingDate = '2026-08-11';
+
+      const makes = ['Honda', 'Ford'];
+
+      const customClaim = {
+        ...claim,
+        claimNumber: 'CLM999'
+      } as Page1Props['claim'];
+
+      render(
+        <Page1Loader
+          {...createProps({
+            claim: customClaim,
+            lossDate,
+            missingDate,
+            vehicleMakes: makes,
+            backToPreStepsPrevented: true
+          })}
+        />
+      );
+
+      expect(
+        mockInitialisePage1
+      ).toHaveBeenCalledWith(
+        lossDate,
+        missingDate,
+        makes,
+        customClaim,
+        true
+      );
+    });
+  });
+
+  describe('scroll behaviour', () => {
+    it('scrolls to the top after mount', () => {
+      const scrollTo = jest.spyOn(
+        window,
+        'scrollTo'
+      );
+
+      render(
+        <Page1Loader
+          {...createProps()}
+        />
+      );
+
+      expect(
+        scrollTo
+      ).not.toHaveBeenCalled();
+
+      jest.runAllTimers();
+
+      expect(
+        scrollTo
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        scrollTo
+      ).toHaveBeenCalledWith(0, 0);
+    });
+  });
+});
