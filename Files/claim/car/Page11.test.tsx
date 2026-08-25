@@ -1,29 +1,22 @@
 import * as React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 
 import { Page1Component } from './Page1';
+
 import type { Page1Props } from './Page1';
 
 import { routes } from '~/common/state';
 import { raiseClaimGAEvent } from '~/feature/claim/utils';
 
+/**
+ * ---------------------------------------------------------
+ * Mocks
+ * ---------------------------------------------------------
+ */
+
 const mockNavigate = jest.fn();
 const mockT = jest.fn((key: string) => key);
-
-/**
- * Page1Component only needs modelPath/formPath from car state.
- *
- * We intentionally mock the whole car state module so the test does not
- * load the real Redux selector/constants/i18n dependency tree.
- */
-jest.mock('~/feature/claim/car/state', () => ({
-  selectors: {},
-  thunks: {
-    initCarPage1: jest.fn()
-  },
-  formPath: 'carClaim',
-  modelPath: 'carClaim'
-}));
+const mockFormFooter = jest.fn();
 
 jest.mock('react-router', () => ({
   useNavigate: () => mockNavigate
@@ -36,14 +29,8 @@ jest.mock('react-i18next', () => ({
 }));
 
 jest.mock('react-redux-form', () => ({
-  Form: ({
-    children
-  }: {
-    children: React.ReactNode;
-  }) => (
-    <div data-testid="form">
-      {children}
-    </div>
+  Form: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="form">{children}</div>
   )
 }));
 
@@ -62,8 +49,55 @@ jest.mock('~/common/state', () => ({
 }));
 
 /**
- * Child components are mocked because their own unit tests
- * are responsible for their internal behaviour.
+ * Mock state modules completely.
+ *
+ * Important:
+ * Do NOT use requireActual here.
+ *
+ * Page1 imports selectors from these modules, but selectors
+ * themselves have their own unit tests. Therefore Page1 tests
+ * only need controllable selector dependencies.
+ */
+jest.mock('~/feature/claim/car/state', () => ({
+  formPath: 'forms.carClaim.page1',
+  modelPath: 'carClaim',
+
+  thunks: {
+    initCarPage1: jest.fn()
+  },
+
+  selectors: {
+    getClaim: jest.fn(),
+    getBaseState: jest.fn(),
+    isCauseOfLossTheft: jest.fn(),
+    showYourDriverQuestions: jest.fn(),
+    showOtherPersonDetailsQuestions: jest.fn(),
+    showPoliceAttendQuestions: jest.fn(),
+    showFireAuthorityReport: jest.fn(),
+    showAuthorityReportQuestions: jest.fn(),
+    showOtherDriversQuestions: jest.fn(),
+    isOtherDriverInvolved: jest.fn(),
+    showWitnessQuestions: jest.fn(),
+    getCarDiscoveredMissingDate: jest.fn(),
+    getLossDate: jest.fn(),
+    getVehicleMakes: jest.fn(),
+    getEventLocationHeaderLabel: jest.fn(),
+    getEventLocationLabel: jest.fn()
+  }
+}));
+
+jest.mock('~/feature/claim/shared/state', () => ({
+  selectors: {
+    getClaimType: jest.fn(),
+    getPolicyDetails: jest.fn(),
+    getPolicyDescription: jest.fn(),
+    getBackToPreStepsPrevented: jest.fn()
+  }
+}));
+
+/**
+ * Child components are mocked because they have their own
+ * unit tests.
  */
 jest.mock('~/feature/claim/car/components', () => ({
   AuthorityReportFire: () => (
@@ -115,14 +149,18 @@ jest.mock('~/feature/claim/shared/components', () => ({
   ),
 
   /**
-   * FormFooter is intentionally kept as a simple child.
+   * FormFooter is intentionally a dumb mock.
    *
-   * Page1 tests that FormFooter is rendered.
-   * FormFooter's own tests are responsible for its behaviour.
+   * We do NOT reproduce its button behaviour here.
+   * We only capture the props Page1 passes to it.
    */
-  FormFooter: () => (
-    <div data-testid="form-footer" />
-  ),
+  FormFooter: (props: unknown) => {
+    mockFormFooter(props);
+
+    return (
+      <div data-testid="form-footer" />
+    );
+  },
 
   PreStepsSummary: () => (
     <div data-testid="pre-steps-summary" />
@@ -146,35 +184,35 @@ jest.mock('~/feature/claim/shared/components/dumb', () => ({
 }));
 
 describe('Page1Component', () => {
+  const claim = {
+    claimNumber: 'CLM123',
+    causeOfLoss: 'accidentWhileDriving',
+    secondaryCauseOfLoss: 'animal',
+    lossDate: new Date('2026-08-01T02:45:00.000Z')
+  } as Page1Props['claim'];
+
   const createProps = (
     overrides: Partial<Page1Props> = {}
   ): Page1Props => ({
-    state: {
-      eventLocationAddress: {}
-    } as Page1Props['state'],
+    claim,
 
-    claim: {
-      claimNumber: 'CLM123',
-      causeOfLoss: 'accidentWhileDriving',
-      secondaryCauseOfLoss: 'animal',
-      lossDate: new Date(
-        '2026-08-01T02:45:00.000Z'
-      )
-    } as Page1Props['claim'],
-
-    claimType: 'car' as Page1Props['claimType'],
+    claimType: 'car',
 
     description: 'Test description',
 
+    state: {
+      eventLocationAddress: undefined
+    } as Page1Props['state'],
+
     showTheftQuestions: false,
     showYourDriver: false,
+    showOtherPersonDetails: false,
     showPoliceAttend: false,
+    showFireAuthorityReport: false,
     showAuthorityReport: false,
     showOtherDrivers: false,
-    showWitness: false,
-    showOtherPersonDetails: false,
-    showFireAuthorityReport: false,
     isOtherDriverInvolved: false,
+    showWitness: false,
 
     getEventLocationHeaderLabel:
       'accidentInformation',
@@ -185,502 +223,338 @@ describe('Page1Component', () => {
     ...overrides
   });
 
+  const renderPage = (
+    overrides: Partial<Page1Props> = {}
+  ) => {
+    render(
+      <Page1Component
+        {...createProps(overrides)}
+      />
+    );
+  };
+
+  const expectRendered = (testId: string) => {
+    expect(
+      screen.getByTestId(testId)
+    ).toBeInTheDocument();
+  };
+
+  const expectNotRendered = (testId: string) => {
+    expect(
+      screen.queryByTestId(testId)
+    ).not.toBeInTheDocument();
+  };
+
+  const expectHeadingRendered = (
+    text: string
+  ) => {
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: text
+      })
+    ).toBeInTheDocument();
+  };
+
+  const expectHeadingNotRendered = (
+    text: string
+  ) => {
+    expect(
+      screen.queryByRole('heading', {
+        level: 2,
+        name: text
+      })
+    ).not.toBeInTheDocument();
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useFakeTimers();
 
-    mockNavigate.mockClear();
-    mockT.mockClear();
+    Object.defineProperty(window, 'scrollTo', {
+      writable: true,
+      value: jest.fn()
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('basic rendering', () => {
-    it('renders the page structure and common components', () => {
-      render(
-        <Page1Component {...createProps()} />
-      );
+    it('renders the basic page content', () => {
+      renderPage();
 
-      expect(
-        screen.getByTestId('form')
-      ).toBeInTheDocument();
+      expectRendered('form');
+      expectRendered('claim-number');
+      expectRendered('pre-steps-summary');
+      expectRendered('event-location');
+      expectRendered('event-description');
+      expectRendered('form-footer');
+      expectRendered('floating-toolbar');
+    });
+
+    it('renders the claim number', () => {
+      renderPage();
 
       expect(
         screen.getByTestId('claim-number')
       ).toHaveTextContent('CLM123');
-
-      expect(
-        screen.getByTestId('pre-steps-summary')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('event-location')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('event-description')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('form-footer')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('floating-toolbar')
-      ).toBeInTheDocument();
     });
 
     it('renders the page heading', () => {
-      render(
-        <Page1Component {...createProps()} />
-      );
+      renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.page1'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'claim/car:headings.page1'
+      );
     });
 
-    it('renders the event location heading from the provided label', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            getEventLocationHeaderLabel:
-              'accidentInformation'
-          })}
-        />
-      );
+    it('renders the event location heading', () => {
+      renderPage();
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.accidentInformation'
-        })
-      ).toBeInTheDocument();
+      expectHeadingRendered(
+        'claim/car:headings.accidentInformation'
+      );
     });
   });
 
-  describe('theft section', () => {
-    it('renders both theft sections when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showTheftQuestions: true
-          })}
-        />
-      );
+  describe('conditional sections', () => {
+    it('does not render optional sections by default', () => {
+      renderPage();
 
-      expect(
-        screen.getByTestId('theft-section-1')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('theft-section-2')
-      ).toBeInTheDocument();
+      expectNotRendered('theft-section-1');
+      expectNotRendered('theft-section-2');
+      expectNotRendered('driver-details');
+      expectNotRendered('other-drivers');
+      expectNotRendered('other-people-detail');
+      expectNotRendered('authority-report-fire');
+      expectNotRendered('police-attend');
+      expectNotRendered('authority-report-police');
+      expectNotRendered('witness-section');
     });
 
-    it('does not render theft sections when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showTheftQuestions: false
-          })}
-        />
-      );
+    it('renders theft sections when enabled', () => {
+      renderPage({
+        showTheftQuestions: true
+      });
 
-      expect(
-        screen.queryByTestId('theft-section-1')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('theft-section-2')
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe('your driver section', () => {
-    it('renders the driver section when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showYourDriver: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.yourDriver'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('driver-details')
-      ).toBeInTheDocument();
+      expectRendered('theft-section-1');
+      expectRendered('theft-section-2');
     });
 
-    it('does not render the driver section when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showYourDriver: false
-          })}
-        />
+    it('renders your driver section when enabled', () => {
+      renderPage({
+        showYourDriver: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.yourDriver'
       );
 
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.yourDriver'
-        })
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('driver-details')
-      ).not.toBeInTheDocument();
+      expectRendered('driver-details');
     });
-  });
 
-  describe('other driver section', () => {
+    it('renders other driver section when enabled', () => {
+      renderPage({
+        showOtherDrivers: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.driverDetails'
+      );
+
+      expectRendered('other-drivers');
+    });
+
     it('renders other driver details heading when another driver is involved', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showOtherDrivers: true,
-            isOtherDriverInvolved: true
-          })}
-        />
+      renderPage({
+        showOtherDrivers: true,
+        isOtherDriverInvolved: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.otherDriverDetails'
       );
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.otherDriverDetails'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('other-drivers')
-      ).toBeInTheDocument();
-    });
-
-    it('renders driver details heading when another driver is not involved', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showOtherDrivers: true,
-            isOtherDriverInvolved: false
-          })}
-        />
+      expectHeadingNotRendered(
+        'claim/car:headings.driverDetails'
       );
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.driverDetails'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('other-drivers')
-      ).toBeInTheDocument();
+      expectRendered('other-drivers');
     });
 
-    it('does not render other driver section when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showOtherDrivers: false
-          })}
-        />
-      );
-
-      expect(
-        screen.queryByTestId('other-drivers')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.otherDriverDetails'
-        })
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.driverDetails'
-        })
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe('other people details', () => {
     it('renders other people details when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showOtherPersonDetails: true
-          })}
-        />
+      renderPage({
+        showOtherPersonDetails: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.otherPeopleDetails'
       );
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.otherPeopleDetails'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('other-people-detail')
-      ).toBeInTheDocument();
+      expectRendered('other-people-detail');
     });
 
-    it('does not render other people details when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showOtherPersonDetails: false
-          })}
-        />
+    it('renders fire authority report when enabled', () => {
+      renderPage({
+        showFireAuthorityReport: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.fire'
       );
 
-      expect(
-        screen.queryByTestId('other-people-detail')
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  describe('fire authority report', () => {
-    it('renders the fire authority report when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showFireAuthorityReport: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.fire'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('authority-report-fire')
-      ).toBeInTheDocument();
+      expectRendered('authority-report-fire');
     });
 
-    it('does not render the fire authority report when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showFireAuthorityReport: false
-          })}
-        />
+    it('renders police attend when enabled', () => {
+      renderPage({
+        showPoliceAttend: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.police'
       );
 
-      expect(
-        screen.queryByTestId('authority-report-fire')
-      ).not.toBeInTheDocument();
-    });
-  });
+      expectRendered('police-attend');
 
-  describe('police section', () => {
-    it('does not render the police heading when both sections are disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showPoliceAttend: false,
-            showAuthorityReport: false
-          })}
-        />
+      expectNotRendered(
+        'authority-report-police'
       );
-
-      expect(
-        screen.queryByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.police'
-        })
-      ).not.toBeInTheDocument();
     });
 
-    it('renders police heading and police attend when police attend is enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showPoliceAttend: true,
-            showAuthorityReport: false
-          })}
-        />
+    it('renders authority police report when enabled', () => {
+      renderPage({
+        showAuthorityReport: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.police'
       );
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.police'
-        })
-      ).toBeInTheDocument();
+      expectRendered(
+        'authority-report-police'
+      );
 
-      expect(
-        screen.getByTestId('police-attend')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('authority-report-police')
-      ).not.toBeInTheDocument();
+      expectNotRendered('police-attend');
     });
 
-    it('renders police heading and authority report when authority report is enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showPoliceAttend: false,
-            showAuthorityReport: true
-          })}
-        />
+    it('renders both police sections when both are enabled', () => {
+      renderPage({
+        showPoliceAttend: true,
+        showAuthorityReport: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.police'
       );
 
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.police'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('police-attend')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('authority-report-police')
-      ).toBeInTheDocument();
+      expectRendered('police-attend');
+      expectRendered(
+        'authority-report-police'
+      );
     });
 
-    it('renders both police components when both are enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showPoliceAttend: true,
-            showAuthorityReport: true
-          })}
-        />
+    it('renders witnesses when enabled', () => {
+      renderPage({
+        showWitness: true
+      });
+
+      expectHeadingRendered(
+        'claim/car:headings.witnesses'
       );
 
-      expect(
-        screen.getByTestId('police-attend')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('authority-report-police')
-      ).toBeInTheDocument();
-    });
-  });
-
-  describe('witness section', () => {
-    it('renders the witness section when enabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showWitness: true
-          })}
-        />
-      );
-
-      expect(
-        screen.getByRole('heading', {
-          level: 2,
-          name: 'claim/car:headings.witnesses'
-        })
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('witness-section')
-      ).toBeInTheDocument();
-    });
-
-    it('does not render the witness section when disabled', () => {
-      render(
-        <Page1Component
-          {...createProps({
-            showWitness: false
-          })}
-        />
-      );
-
-      expect(
-        screen.queryByTestId('witness-section')
-      ).not.toBeInTheDocument();
+      expectRendered('witness-section');
     });
   });
 
   describe('FormFooter', () => {
     it('renders FormFooter', () => {
-      render(
-        <Page1Component {...createProps()} />
-      );
+      renderPage();
 
-      expect(
-        screen.getByTestId('form-footer')
-      ).toBeInTheDocument();
+      expectRendered('form-footer');
+      expect(mockFormFooter).toHaveBeenCalledTimes(1);
     });
-  });
 
-  describe('submit behaviour', () => {
-    beforeEach(() => {
-      /**
-       * Unlike the normal FormFooter mock, this test needs access
-       * to the callback supplied by Page1Component.
-       *
-       * This still does not test FormFooter's behaviour.
-       */
-      jest.doMock(
-        '~/feature/claim/shared/components',
-        () => ({
-          EventDescription: () => (
-            <div data-testid="event-description" />
-          ),
-          EventLocation: () => (
-            <div data-testid="event-location" />
-          ),
-          FloatingToolbar: () => (
-            <div data-testid="floating-toolbar" />
-          ),
-          FormFooter: ({
-            handleSubmit
-          }: {
-            handleSubmit: () => void;
-          }) => (
-            <button
-              type="button"
-              data-testid="form-footer-submit"
-              onClick={handleSubmit}
-            >
-              Next
-            </button>
-          ),
-          PreStepsSummary: () => (
-            <div data-testid="pre-steps-summary" />
-          ),
-          WitnessSection: () => (
-            <div data-testid="witness-section" />
-          )
+    it('passes the expected props to FormFooter', () => {
+      renderPage();
+
+      expect(mockFormFooter).toHaveBeenCalledWith(
+        expect.objectContaining({
+          disabled: false,
+          validating: false,
+          submitButtonLabel:
+            'claim:footer.nextButton.car.page1',
+          handleSubmit: expect.any(Function)
         })
       );
     });
 
-    it('raises the GA event and navigates to page 2', () => {
+    it('does not test FormFooter behaviour', () => {
       /**
-       * This test is intentionally omitted from the same module setup
-       * because Jest module mocks are hoisted.
+       * Intentionally empty.
        *
-       * The Page1Component behaviour is covered by the dedicated
-       * callback test below if FormFooter exposes its callback.
+       * FormFooter has its own unit tests.
+       * Page1 only verifies that it renders FormFooter
+       * and provides the expected props.
        */
-      expect(true).toBe(true);
+    });
+  });
+
+  describe('next action', () => {
+    it('raises the GA event when FormFooter submit handler is invoked', async () => {
+      renderPage();
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
+
+      await formFooterProps.handleSubmit();
+
+      expect(
+        raiseClaimGAEvent
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        raiseClaimGAEvent
+      ).toHaveBeenCalledWith(
+        'CLM123',
+        'car'
+      );
+    });
+
+    it('navigates to car page 2 after submit', async () => {
+      renderPage();
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
+
+      await formFooterProps.handleSubmit();
+
+      jest.runAllTimers();
+
+      expect(mockNavigate).toHaveBeenCalledTimes(1);
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        routes.CLAIM.CAR.PAGE2
+      );
+    });
+  });
+
+  describe('event location', () => {
+    it('passes the event location configuration to EventLocation', () => {
+      renderPage({
+        getEventLocationHeaderLabel:
+          'accidentInformation',
+        getEventLocationLabel:
+          'accidentWhileDriving.search'
+      });
+
+      expectRendered('event-location');
     });
   });
 });
