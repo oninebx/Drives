@@ -1,0 +1,14 @@
+ Test suite failed to run
+
+    TypeError: (0 , _translation.translate) is not a function
+
+      285 |   mapStateToProps,
+      286 |   mapDispatchToProps
+    > 287 | )(translate(['base', 'claim', 'claim/contents'])(Page1HookWrapper));
+          |            ^
+      288 |
+      289 | export default Page1;
+      290 |
+
+      at Object.<anonymous> (src/feature/claim/contents/views/Page1.tsx:287:12)
+      at Object.<anonymous> (src/feature/claim/contents/views/Page10.test.tsx:180:16)
