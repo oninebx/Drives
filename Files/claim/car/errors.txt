@@ -41,3 +41,30 @@
       at Object.<anonymous> (src/feature/claim/car/state/index.ts:22:18)
       at Object.<anonymous> (src/feature/claim/car/views/Page1.tsx:30:17)
       at Object.<anonymous> (src/feature/claim/car/views/Page1.test.tsx:86:16)
+
+
+      jest.mock('~/feature/claim/car/state', () => ({
+  selectors: {
+    getClaim: jest.fn(),
+    getBaseState: jest.fn(),
+    isCauseOfLossTheft: jest.fn(),
+    showYourDriverQuestions: jest.fn(),
+    showOtherPersonDetailsQuestions: jest.fn(),
+    showPoliceAttendQuestions: jest.fn(),
+    showFireAuthorityReport: jest.fn(),
+    showAuthorityReportQuestions: jest.fn(),
+    showOtherDriversQuestions: jest.fn(),
+    isOtherDriverInvolved: jest.fn(),
+    showWitnessQuestions: jest.fn(),
+    getCarDiscoveredMissingDate: jest.fn(),
+    getLossDate: jest.fn(),
+    getVehicleMakes: jest.fn(),
+    getEventLocationHeaderLabel: jest.fn(),
+    getEventLocationLabel: jest.fn()
+  },
+  thunks: {
+    initCarPage1: jest.fn()
+  },
+  formPath: 'carClaim',
+  modelPath: 'carClaim'
+}));
