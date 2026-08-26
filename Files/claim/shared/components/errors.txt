@@ -1,0 +1,21 @@
+ Test suite failed to run
+
+    You are passing an undefined module! Please check the object you are passing to i18next.use()
+
+      29 |       __brandPhoneQ2BError__: process.env.brandPhoneQ2BError,
+      30 |       __brandPhoneQ2BSupport__: process.env.brandPhoneQ2BSupport,
+    > 31 |       __brandPhoneQ2BUnderwritingError__: process.env.brandPhoneQ2BUnderwritingError,
+         |                                      ^
+      32 |       __brandCustomerServicePhone__: process.env.brandCustomerServicePhone,
+      33 |       __brandPhoneClaims__: process.env.brandPhoneClaims,
+      34 |       __renewalsPhone__: process.env.renewalsPhone,
+
+      at I18n.use (node_modules/i18next/dist/cjs/i18next.js:1910:24)
+      at Object.<anonymous> (src/root/__mocks__/i18n.ts:31:38)
+      at Object.<anonymous> (src/common/state/messages.ts:19:15)
+      at Object.<anonymous> (src/common/state/auth.ts:25:58)
+      at Object.<anonymous> (src/common/state/index.ts:43:54)
+      at Object.<anonymous> (src/feature/claim/shared/state/middleware.ts:12:16)
+      at Object.<anonymous> (src/feature/claim/shared/state/index.ts:22:61)
+      at Object.<anonymous> (src/feature/claim/shared/components/question/WitnessDetails/WitnessDetails.tsx:23:16)
+      at Object.<anonymous> (src/feature/claim/shared/components/question/WitnessDetails/WitnessDetails1.test.tsx:19:25)
