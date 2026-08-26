@@ -1,0 +1,21 @@
+DPOPersonalDetailsComponent › MDTextField › passes the correct props to first name field
+
+    expect(jest.fn()).toHaveBeenNthCalledWith(n, ...expected)
+
+    n: 1
+    Expected: ObjectContaining {"ariaLabel": "First name", "id": "damagePropertyOwnerFirstNameField1", "label": "First name", "maxLength": 255, "model": "claim.damagePropertyOwner.firstName", "validateOn": "change"}
+    Received
+    ->     1: called with 0 arguments
+           2: called with 0 arguments
+
+    Number of calls: 4
+
+      175 |       renderComponent();
+      176 |
+    > 177 |       expect(mockMDTextField).toHaveBeenNthCalledWith(
+          |                               ^
+      178 |         1,
+      179 |         expect.objectContaining({
+      180 |           id: 'damagePropertyOwnerFirstNameField1',
+
+      at Object.toHaveBeenNthCalledWith (src/feature/claim/car/components/dumb/DPOPersonalDetails/DPOPersonalDetails0.test.tsx:177:31)
