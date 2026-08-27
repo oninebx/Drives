@@ -3,173 +3,97 @@ import { render, screen, waitFor } from '@testing-library/react';
 
 import {
   Page1Component,
-  Page1Loader,
-  type Page1Props
+  Page1Loader
 } from './Page1';
 
-import { ClaimType } from '~/feature/claim/shared/state';
-import { routes } from '~/common/state';
+import type { Page1Props } from './Page1';
 
-// ------------------------------------------------------------
-// Mocks
-// ------------------------------------------------------------
+import { routes } from '~/common/state';
+import {
+  formatPhoneNumberApiToUi,
+  raiseClaimGAEvent
+} from '~/feature/claim/utils';
+
+/**
+ * ---------------------------------------------------------
+ * Mocks
+ * ---------------------------------------------------------
+ */
 
 const mockNavigate = jest.fn();
-const mockSubmitWindscreenClaim = jest.fn();
+const mockT = jest.fn((key: string) => key);
+const mockFormFooter = jest.fn();
 
 const mockSetDefaultContactPhoneNumber = jest.fn();
 const mockSetDefaultCarRegistration = jest.fn();
 const mockDeselctConfirmation = jest.fn();
 
-const mockDamageGlass = jest.fn(() => (
-  <div data-testid="DamageGlass" />
-));
-
-const mockDamageWindscreenSide = jest.fn(() => (
-  <div data-testid="DamageWindscreenSide" />
-));
-
-const mockDamageWindowSide = jest.fn(() => (
-  <div data-testid="DamageWindowSide" />
-));
-
-const mockDamageSize = jest.fn(() => (
-  <div data-testid="DamageSize" />
-));
-
-const mockCarLocationAddress = jest.fn(() => (
-  <div data-testid="CarLocationAddress" />
-));
-
-const mockContactPhoneNumber = jest.fn(() => (
-  <div data-testid="ContactPhoneNumber" />
-));
-
-const mockLicencePlateControl = jest.fn(() => (
-  <div data-testid="LicencePlateControl" />
-));
-
-const mockMDCheckboxField = jest.fn(() => (
-  <div data-testid="MDCheckboxField" />
-));
-
-const mockErrorText = jest.fn(() => (
-  <div data-testid="ErrorText" />
-));
-
-const mockFormMessage = jest.fn(() => (
-  <div data-testid="FormMessage" />
-));
-
-const mockHtml = jest.fn(() => (
-  <div data-testid="Html" />
-));
-
-const mockQuestion = jest.fn(
-  ({
-    children,
-    id
-  }: {
-    children: React.ReactNode;
-    id: string;
-  }) => (
-    <div
-      data-testid="Question"
-      data-question-id={id}>
-      {children}
-    </div>
-  )
-);
-
-const mockFormFooter = jest.fn(
-  () => <div data-testid="FormFooter" />
-);
-
-const mockFloatingToolbar = jest.fn(() => (
-  <div data-testid="FloatingToolbar" />
-));
-
-const mockForm = jest.fn(
-  ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="Form">{children}</div>
-  )
-);
-
-const defaultTranslations: Record<string, string> = {
-  'claim/windscreen:headings.page1': 'Windscreen',
-  'registrationNumber.title': 'Registration number',
-  'claim/windscreen:carRegistration.confirmationText':
-    'I confirm this registration',
-  'claim/windscreen:carRegistration.registrationErrorText':
-    'Registration number is required',
-  'claim/windscreen:carRegistration.confirmationErrorText':
-    'Please confirm the registration',
-  'claim/windscreen:mandatoryFields.title':
-    'Mandatory fields',
-  'claim/windscreen:mandatoryFields.description':
-    'Please complete all mandatory fields',
-  'base:button.next': 'Next'
-};
-
-const mockT = jest.fn(
-  (key: string): string => defaultTranslations[key] ?? key
-);
-
-// ------------------------------------------------------------
-// Module mocks
-// ------------------------------------------------------------
+const mockSubmitWindscreenClaim = jest.fn();
 
 jest.mock('react-router', () => ({
   useNavigate: () => mockNavigate
 }));
 
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: mockT
+  })
+}));
+
 jest.mock('react-redux-form', () => ({
-  Form: (props: {
+  Form: ({
+    children
+  }: {
     children: React.ReactNode;
-  }) => mockForm(props),
+  }) => (
+    <div data-testid="form">
+      {children}
+    </div>
+  ),
+
   actions: {
     change: jest.fn()
   }
 }));
 
-jest.mock('~/common/components/base', () => ({
-  ErrorText: (props: unknown) => mockErrorText(props),
-  FormMessage: (props: unknown) => mockFormMessage(props),
-  Html: (props: unknown) => mockHtml(props),
-  LicencePlateControl: (props: unknown) =>
-    mockLicencePlateControl(props),
-  LicencePlateField: () => <div data-testid="LicencePlateField" />
+jest.mock('~/common/state', () => ({
+  routes: {
+    CLAIM: {
+      SHARED: {
+        CONFIRMATION: '/claim/shared/confirmation'
+      }
+    }
+  },
+
+  selectors: {
+    getCustomer: jest.fn()
+  }
 }));
 
-jest.mock('~/common/components/smart', () => ({
-  MDCheckboxField: (props: unknown) =>
-    mockMDCheckboxField(props)
+jest.mock('~/feature/claim/utils', () => ({
+  formatPhoneNumberApiToUi: jest.fn(
+    (phoneNumber: string) => `formatted-${phoneNumber}`
+  ),
+
+  raiseClaimGAEvent: jest.fn()
 }));
 
-jest.mock('~/feature/claim/shared/components', () => ({
-  FloatingToolbar: (props: unknown) =>
-    mockFloatingToolbar(props),
-  FormFooter: (props: unknown) =>
-    mockFormFooter(props),
-  Question: (props: {
-    children: React.ReactNode;
-    id: string;
-  }) => mockQuestion(props)
+jest.mock('~/feature/claim/state', () => ({
+  actions: {
+    submitWindscreenClaim: () =>
+      mockSubmitWindscreenClaim()
+  }
 }));
 
-jest.mock('~/feature/claim/windscreen/components', () => ({
-  CarLocationAddress: (props: unknown) =>
-    mockCarLocationAddress(props),
-  ContactPhoneNumber: () => mockContactPhoneNumber(),
-  DamageGlass: () => mockDamageGlass(),
-  DamageSize: () => mockDamageSize(),
-  DamageWindowSide: () => mockDamageWindowSide(),
-  DamageWindscreenSide: () =>
-    mockDamageWindscreenSide()
-}));
-
+/**
+ * State selectors have their own unit tests.
+ *
+ * Page1 tests only need controllable selector
+ * dependencies, so the complete state modules are mocked.
+ */
 jest.mock('~/feature/claim/windscreen/state', () => ({
   modelPath: 'claim.windscreen',
+
   selectors: {
     getBaseState: jest.fn(),
     showDamageWindscreenSide: jest.fn(),
@@ -180,41 +104,153 @@ jest.mock('~/feature/claim/windscreen/state', () => ({
   }
 }));
 
-jest.mock('~/common/state', () => ({
-  selectors: {
-    getCustomer: jest.fn()
-  },
-  routes: {
-    CLAIM: {
-      SHARED: {
-        CONFIRMATION: '/claim/confirmation'
-      }
-    }
-  }
-}));
-
 jest.mock('~/feature/claim/shared/state', () => ({
   selectors: {
     getClaimSharedState: jest.fn()
   }
 }));
 
-jest.mock('~/feature/claim/state', () => ({
-  actions: {
-    submitWindscreenClaim: () => mockSubmitWindscreenClaim()
-  }
-}));
-
-jest.mock('~/feature/claim/utils', () => ({
-  formatPhoneNumberApiToUi: jest.fn(
-    (phoneNumber: string) => `formatted-${phoneNumber}`
+/**
+ * Base components are mocked because they have their
+ * own unit tests.
+ */
+jest.mock('~/common/components/base', () => ({
+  ErrorText: () => (
+    <div data-testid="error-text" />
   ),
-  raiseClaimGAEvent: jest.fn()
+
+  FormMessage: () => (
+    <div data-testid="form-message" />
+  ),
+
+  Html: () => (
+    <div data-testid="html" />
+  ),
+
+  LicencePlateControl: () => (
+    <div data-testid="licence-plate-control" />
+  ),
+
+  LicencePlateField: () => (
+    <div data-testid="licence-plate-field" />
+  )
 }));
 
-// ------------------------------------------------------------
-// Test data
-// ------------------------------------------------------------
+/**
+ * Smart components are mocked because they have their
+ * own unit tests.
+ */
+jest.mock('~/common/components/smart', () => ({
+  MDCheckboxField: () => (
+    <div data-testid="md-checkbox-field" />
+  )
+}));
+
+/**
+ * Windscreen child components are mocked because they
+ * have their own unit tests.
+ */
+jest.mock('~/feature/claim/windscreen/components', () => ({
+  CarLocationAddress: () => (
+    <div data-testid="car-location-address" />
+  ),
+
+  ContactPhoneNumber: () => (
+    <div data-testid="contact-phone-number" />
+  ),
+
+  DamageGlass: () => (
+    <div data-testid="damage-glass" />
+  ),
+
+  DamageSize: () => (
+    <div data-testid="damage-size" />
+  ),
+
+  DamageWindowSide: () => (
+    <div data-testid="damage-window-side" />
+  ),
+
+  DamageWindscreenSide: () => (
+    <div data-testid="damage-windscreen-side" />
+  )
+}));
+
+/**
+ * Shared components are mocked because they have their
+ * own unit tests.
+ */
+jest.mock('~/feature/claim/shared/components', () => ({
+  FloatingToolbar: () => (
+    <div data-testid="floating-toolbar" />
+  ),
+
+  /**
+   * FormFooter is intentionally a dumb mock.
+   *
+   * Page1 tests the props it provides and invokes
+   * handleSubmit to test Page1's own submit behaviour.
+   *
+   * FormFooter's own behaviour is covered by its
+   * dedicated unit tests.
+   */
+  FormFooter: (props: unknown) => {
+    mockFormFooter(props);
+
+    return (
+      <div data-testid="form-footer" />
+    );
+  },
+
+  Question: ({
+    children,
+    id
+  }: {
+    children: React.ReactNode;
+    id: string;
+  }) => (
+    <div
+      data-testid="question"
+      data-question-id={id}>
+      {children}
+    </div>
+  )
+}));
+
+/**
+ * ---------------------------------------------------------
+ * Test data
+ * ---------------------------------------------------------
+ */
+
+const defaultTranslations: Record<string, string> = {
+  'claim/windscreen:headings.page1':
+    'Windscreen',
+
+  'registrationNumber.title':
+    'Registration number',
+
+  'claim/windscreen:carRegistration.confirmationText':
+    'I confirm this registration',
+
+  'claim/windscreen:carRegistration.registrationErrorText':
+    'Registration number is required',
+
+  'claim/windscreen:carRegistration.confirmationErrorText':
+    'Please confirm the registration',
+
+  'claim/windscreen:mandatoryFields.title':
+    'Mandatory fields',
+
+  'claim/windscreen:mandatoryFields.description':
+    'Please complete all mandatory fields',
+
+  'base:button.next':
+    'Next',
+
+  'claim:phone.defaultCountry':
+    'NZ'
+};
 
 const windscreenState = {
   contactPhoneNumber: '',
@@ -222,275 +258,311 @@ const windscreenState = {
     registrationNumber: '',
     confirmation: false
   },
-  carLocationAddress: {}
-};
+
+  carLocationAddress: undefined
+} as Page1Props['windscreenState'];
 
 const claimSharedState = {
-  claimNumber: 'CLAIM-123',
+  claimNumber: 'CLM123',
+
   policyDetails: {
     risk: {
       registrationNo: 'ABC123'
     }
   }
-};
+} as Page1Props['claimSharedState'];
 
-const defaultComponentProps: Page1Props = {
+const customer = {
+  phones: [
+    {
+      phoneNumber: '0211234567'
+    }
+  ]
+} as Page1Props['customer'];
+
+/**
+ * ---------------------------------------------------------
+ * Helpers
+ * ---------------------------------------------------------
+ */
+
+const createComponentProps = (
+  overrides: Partial<Page1Props> = {}
+): Page1Props => ({
   t: mockT,
-  windscreenState,
-  areWindscreenFieldsIncomplete: false,
-  claimSharedState,
-  showDamageWindowSide: false,
-  showDamageWindscreenSide: false,
-  hasCarRegistration: true,
-  hasConfirmedTheRegistration: false
-};
 
-const defaultLoaderProps: Page1Props = {
-  ...defaultComponentProps,
-  customer: {
-    phones: [
-      {
-        phoneNumber: '0211234567'
-      }
-    ]
-  },
+  windscreenState,
+
+  showDamageWindscreenSide: false,
+
+  showDamageWindowSide: false,
+
+  areWindscreenFieldsIncomplete: false,
+
+  customer,
+
+  claimSharedState,
+
+  hasCarRegistration: true,
+
+  hasConfirmedTheRegistration: false,
+
+  ...overrides
+});
+
+const createLoaderProps = (
+  overrides: Partial<Page1Props> = {}
+): Page1Props => ({
+  ...createComponentProps(),
+
   setDefaultContactPhoneNumber:
     mockSetDefaultContactPhoneNumber,
+
   setDefaultCarRegistration:
     mockSetDefaultCarRegistration,
-  deselctConfirmation: mockDeselctConfirmation
-};
 
-// ------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------
+  deselctConfirmation:
+    mockDeselctConfirmation,
 
-const renderComponent = (
-  props: Partial<Page1Props> = {}
-) =>
+  ...overrides
+});
+
+const renderPage = (
+  overrides: Partial<Page1Props> = {}
+) => {
   render(
     <Page1Component
-      {...defaultComponentProps}
-      {...props}
+      {...createComponentProps(overrides)}
     />
   );
+};
 
 const renderLoader = (
-  props: Partial<Page1Props> = {}
-) =>
+  overrides: Partial<Page1Props> = {}
+) => {
   render(
     <Page1Loader
-      {...defaultLoaderProps}
-      {...props}
+      {...createLoaderProps(overrides)}
     />
   );
+};
 
-// ------------------------------------------------------------
-// Tests
-// ------------------------------------------------------------
+const expectRendered = (testId: string) => {
+  expect(
+    screen.getByTestId(testId)
+  ).toBeInTheDocument();
+};
+
+const expectNotRendered = (testId: string) => {
+  expect(
+    screen.queryByTestId(testId)
+  ).not.toBeInTheDocument();
+};
+
+/**
+ * ---------------------------------------------------------
+ * Page1Component
+ * ---------------------------------------------------------
+ */
 
 describe('Page1Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockT.mockImplementation(
-      (key: string): string =>
+      (key: string) =>
         defaultTranslations[key] ?? key
     );
 
-    mockSubmitWindscreenClaim.mockResolvedValue(undefined);
+    mockSubmitWindscreenClaim.mockResolvedValue(
+      undefined
+    );
   });
 
-  describe('rendering', () => {
-    it('renders the page heading and DamageGlass', () => {
-      renderComponent();
+  describe('basic rendering', () => {
+    it('renders the basic page content', () => {
+      renderPage();
+
+      expectRendered('form');
+      expectRendered('damage-glass');
+    });
+
+    it('renders the page heading', () => {
+      renderPage();
 
       expect(
-        screen.getByText('Windscreen')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('DamageGlass')
+        screen.getByRole('heading', {
+          level: 2,
+          name: 'Windscreen'
+        })
       ).toBeInTheDocument();
     });
 
-    it('does not render optional damage sections when neither side is shown', () => {
-      renderComponent({
-        showDamageWindscreenSide: false,
-        showDamageWindowSide: false
-      });
+    it('does not render the damage sections by default', () => {
+      renderPage();
 
-      expect(
-        screen.queryByTestId('DamageWindscreenSide')
-      ).not.toBeInTheDocument();
+      expectNotRendered(
+        'damage-windscreen-side'
+      );
 
-      expect(
-        screen.queryByTestId('DamageWindowSide')
-      ).not.toBeInTheDocument();
+      expectNotRendered(
+        'damage-window-side'
+      );
 
-      expect(
-        screen.queryByTestId('DamageSize')
-      ).not.toBeInTheDocument();
+      expectNotRendered('damage-size');
+      expectNotRendered(
+        'car-location-address'
+      );
 
-      expect(
-        screen.queryByTestId('CarLocationAddress')
-      ).not.toBeInTheDocument();
+      expectNotRendered(
+        'contact-phone-number'
+      );
 
-      expect(
-        screen.queryByTestId('Question')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('ContactPhoneNumber')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('FormFooter')
-      ).not.toBeInTheDocument();
-
-      expect(
-        screen.queryByTestId('FloatingToolbar')
-      ).not.toBeInTheDocument();
-    });
-
-    it('renders windscreen damage section when showDamageWindscreenSide is true', () => {
-      renderComponent({
-        showDamageWindscreenSide: true,
-        showDamageWindowSide: false
-      });
-
-      expect(
-        screen.getByTestId('DamageWindscreenSide')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('DamageSize')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('CarLocationAddress')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('Question')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('ContactPhoneNumber')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('FormFooter')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('FloatingToolbar')
-      ).toBeInTheDocument();
-    });
-
-    it('renders window damage section when showDamageWindowSide is true', () => {
-      renderComponent({
-        showDamageWindscreenSide: false,
-        showDamageWindowSide: true
-      });
-
-      expect(
-        screen.getByTestId('DamageWindowSide')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('DamageSize')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('CarLocationAddress')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('ContactPhoneNumber')
-      ).toBeInTheDocument();
-    });
-
-    it('renders both damage sections when both flags are true', () => {
-      renderComponent({
-        showDamageWindscreenSide: true,
-        showDamageWindowSide: true
-      });
-
-      expect(
-        screen.getByTestId('DamageWindscreenSide')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('DamageWindowSide')
-      ).toBeInTheDocument();
-
-      expect(
-        screen.getByTestId('DamageSize')
-      ).toBeInTheDocument();
+      expectNotRendered('form-footer');
+      expectNotRendered(
+        'floating-toolbar'
+      );
     });
   });
 
-  describe('licence plate confirmation', () => {
-    it('renders licence plate question and fields when a damage side is shown', () => {
-      renderComponent({
+  describe('conditional sections', () => {
+    it('renders windscreen damage section when enabled', () => {
+      renderPage({
         showDamageWindscreenSide: true
       });
 
-      expect(mockQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'licencePlate',
-          model: 'claim.windscreen.carRegistration',
-          translation:
-            'claim/windscreen:carRegistration'
-        })
+      expectRendered(
+        'damage-windscreen-side'
       );
 
-      expect(
-        screen.getByTestId('LicencePlateControl')
-      ).toBeInTheDocument();
+      expectRendered('damage-size');
+      expectRendered(
+        'car-location-address'
+      );
 
-      expect(
-        screen.getByTestId('MDCheckboxField')
-      ).toBeInTheDocument();
+      expectRendered(
+        'contact-phone-number'
+      );
+
+      expectRendered('form-footer');
+      expectRendered(
+        'floating-toolbar'
+      );
     });
 
-    it('enables confirmation when the car registration already exists', () => {
-      renderComponent({
+    it('renders window damage section when enabled', () => {
+      renderPage({
+        showDamageWindowSide: true
+      });
+
+      expectRendered(
+        'damage-window-side'
+      );
+
+      expectRendered('damage-size');
+      expectRendered(
+        'car-location-address'
+      );
+
+      expectRendered(
+        'contact-phone-number'
+      );
+
+      expectRendered('form-footer');
+      expectRendered(
+        'floating-toolbar'
+      );
+    });
+
+    it('renders both damage sections when both are enabled', () => {
+      renderPage({
+        showDamageWindscreenSide: true,
+        showDamageWindowSide: true
+      });
+
+      expectRendered(
+        'damage-windscreen-side'
+      );
+
+      expectRendered(
+        'damage-window-side'
+      );
+
+      expectRendered('damage-size');
+      expectRendered(
+        'car-location-address'
+      );
+    });
+  });
+
+  describe('licence plate section', () => {
+    it('renders licence plate controls when a damage side is shown', () => {
+      renderPage({
+        showDamageWindscreenSide: true
+      });
+
+      expectRendered('question');
+
+      expectRendered(
+        'licence-plate-control'
+      );
+
+      expectRendered(
+        'md-checkbox-field'
+      );
+    });
+
+    it('enables registration confirmation when car registration exists', () => {
+      renderPage({
         showDamageWindscreenSide: true,
         hasCarRegistration: true,
         hasConfirmedTheRegistration: false
       });
 
-      expect(mockMDCheckboxField).toHaveBeenCalledWith(
+      /**
+       * The actual MDCheckboxField behaviour is tested
+       * by its own unit tests.
+       *
+       * Here we only verify the prop Page1 provides.
+       */
+      const checkboxProps =
+        mockMDCheckboxField.mock.calls[0]?.[0];
+
+      expect(checkboxProps).toEqual(
         expect.objectContaining({
           disabled: false
         })
       );
     });
 
-    it('enables confirmation when the registration has been confirmed', () => {
-      renderComponent({
+    it('enables registration confirmation when registration has been confirmed', () => {
+      renderPage({
         showDamageWindscreenSide: true,
         hasCarRegistration: false,
         hasConfirmedTheRegistration: true
       });
 
-      expect(mockMDCheckboxField).toHaveBeenCalledWith(
+      const checkboxProps =
+        mockMDCheckboxField.mock.calls[0]?.[0];
+
+      expect(checkboxProps).toEqual(
         expect.objectContaining({
           disabled: false
         })
       );
     });
 
-    it('disables confirmation when there is no car registration and it has not been confirmed', () => {
-      renderComponent({
+    it('disables registration confirmation when registration is missing and has not been confirmed', () => {
+      renderPage({
         showDamageWindscreenSide: true,
         hasCarRegistration: false,
         hasConfirmedTheRegistration: false
       });
 
-      expect(mockMDCheckboxField).toHaveBeenCalledWith(
+      const checkboxProps =
+        mockMDCheckboxField.mock.calls[0]?.[0];
+
+      expect(checkboxProps).toEqual(
         expect.objectContaining({
           disabled: true
         })
@@ -499,230 +571,377 @@ describe('Page1Component', () => {
   });
 
   describe('validation messages', () => {
-    it('does not render registration error before submit is attempted', () => {
-      renderComponent({
+    it('does not render validation messages before submit is attempted', () => {
+      renderPage({
         showDamageWindscreenSide: true,
-        hasCarRegistration: false
-      });
-
-      expect(
-        screen.queryByTestId('ErrorText')
-      ).not.toBeInTheDocument();
-    });
-
-    it('renders validation errors after an incomplete submit', async () => {
-      renderComponent({
-        showDamageWindscreenSide: true,
+        areWindscreenFieldsIncomplete: true,
         hasCarRegistration: false,
-        hasConfirmedTheRegistration: false,
-        areWindscreenFieldsIncomplete: true
+        hasConfirmedTheRegistration: false
       });
 
-      const footerProps = mockFormFooter.mock.calls[0][0];
-
-      await footerProps.handleSubmit();
-
-      expect(
-        screen.getAllByTestId('ErrorText')
-      ).toHaveLength(2);
-
-      expect(
-        screen.getByTestId('FormMessage')
-      ).toBeInTheDocument();
+      expectNotRendered('error-text');
+      expectNotRendered('form-message');
     });
 
-    it('renders mandatory fields message after an incomplete submit', async () => {
-      renderComponent({
+    it('renders validation messages after an incomplete submit', async () => {
+      renderPage({
         showDamageWindscreenSide: true,
-        areWindscreenFieldsIncomplete: true
+        areWindscreenFieldsIncomplete: true,
+        hasCarRegistration: false,
+        hasConfirmedTheRegistration: false
       });
 
-      const footerProps = mockFormFooter.mock.calls[0][0];
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
 
-      await footerProps.handleSubmit();
+      await formFooterProps.handleSubmit();
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByTestId('error-text')
+        ).toHaveLength(2);
+
+        expectRendered('form-message');
+      });
+    });
+
+    it('renders registration error when registration is missing after submit', async () => {
+      renderPage({
+        showDamageWindscreenSide: true,
+        areWindscreenFieldsIncomplete: true,
+        hasCarRegistration: false,
+        hasConfirmedTheRegistration: true
+      });
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
+
+      await formFooterProps.handleSubmit();
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByTestId('error-text')
+        ).toHaveLength(1);
+      });
+    });
+
+    it('renders confirmation error when registration has not been confirmed after submit', async () => {
+      renderPage({
+        showDamageWindscreenSide: true,
+        areWindscreenFieldsIncomplete: true,
+        hasCarRegistration: true,
+        hasConfirmedTheRegistration: false
+      });
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
+
+      await formFooterProps.handleSubmit();
+
+      await waitFor(() => {
+        expect(
+          screen.getAllByTestId('error-text')
+        ).toHaveLength(1);
+      });
+    });
+  });
+
+  describe('FormFooter', () => {
+    it('renders FormFooter when a damage side is shown', () => {
+      renderPage({
+        showDamageWindscreenSide: true
+      });
+
+      expectRendered('form-footer');
 
       expect(
-        screen.getByTestId('FormMessage')
-      ).toBeInTheDocument();
+        mockFormFooter
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the expected props to FormFooter', () => {
+      renderPage({
+        showDamageWindscreenSide: true
+      });
+
+      expect(
+        mockFormFooter
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          disabled: false,
+          validating: false,
+          submitButtonLabel: 'Next',
+          handleSubmit: expect.any(Function)
+        })
+      );
     });
   });
 
   describe('submit', () => {
-    it('does not submit the claim when windscreen fields are incomplete', async () => {
-      renderComponent({
+    it('does not submit the claim when fields are incomplete', async () => {
+      renderPage({
         showDamageWindscreenSide: true,
         areWindscreenFieldsIncomplete: true
       });
 
-      const footerProps = mockFormFooter.mock.calls[0][0];
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
 
-      await footerProps.handleSubmit();
+      await formFooterProps.handleSubmit();
 
       expect(
         mockSubmitWindscreenClaim
       ).not.toHaveBeenCalled();
 
-      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(
+        mockNavigate
+      ).not.toHaveBeenCalled();
+
+      expect(
+        raiseClaimGAEvent
+      ).not.toHaveBeenCalled();
     });
 
-    it('submits the claim and navigates to confirmation when fields are complete', async () => {
-      renderComponent({
+    it('submits the claim when fields are complete', async () => {
+      renderPage({
         showDamageWindscreenSide: true,
         areWindscreenFieldsIncomplete: false
       });
 
-      const footerProps = mockFormFooter.mock.calls[0][0];
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
 
-      await footerProps.handleSubmit();
+      await formFooterProps.handleSubmit();
 
       await waitFor(() => {
         expect(
           mockSubmitWindscreenClaim
         ).toHaveBeenCalledTimes(1);
       });
-
-      expect(mockNavigate).toHaveBeenCalledWith(
-        routes.CLAIM.SHARED.CONFIRMATION
-      );
     });
-  });
 
-  describe('FormFooter', () => {
-    it('renders FormFooter when a damage side is shown', () => {
-      renderComponent({
-        showDamageWindscreenSide: true
+    it('raises the GA event after submitting the claim', async () => {
+      renderPage({
+        showDamageWindscreenSide: true,
+        areWindscreenFieldsIncomplete: false
       });
 
-      expect(mockFormFooter).toHaveBeenCalledTimes(1);
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
 
-      expect(mockFormFooter).toHaveBeenCalledWith(
-        expect.objectContaining({
-          disabled: false,
-          validating: false,
-          submitButtonLabel: 'Next'
-        })
-      );
+      await formFooterProps.handleSubmit();
+
+      await waitFor(() => {
+        expect(
+          raiseClaimGAEvent
+        ).toHaveBeenCalledWith(
+          'CLM123',
+          'windscreen'
+        );
+      });
+    });
+
+    it('navigates to the confirmation page after submitting the claim', async () => {
+      renderPage({
+        showDamageWindscreenSide: true,
+        areWindscreenFieldsIncomplete: false
+      });
+
+      const formFooterProps =
+        mockFormFooter.mock.calls[0][0] as {
+          handleSubmit: () => Promise<void>;
+        };
+
+      await formFooterProps.handleSubmit();
+
+      await waitFor(() => {
+        expect(
+          mockNavigate
+        ).toHaveBeenCalledWith(
+          routes.CLAIM.SHARED.CONFIRMATION
+        );
+      });
     });
   });
 
   describe('FloatingToolbar', () => {
     it('renders FloatingToolbar when a damage side is shown', () => {
-      renderComponent({
+      renderPage({
         showDamageWindscreenSide: true
       });
 
-      expect(
-        screen.getByTestId('FloatingToolbar')
-      ).toBeInTheDocument();
-
-      expect(mockFloatingToolbar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          saveClaimEnabled: false
-        })
+      expectRendered(
+        'floating-toolbar'
       );
     });
   });
 });
 
-// ------------------------------------------------------------
-// Page1Loader
-// ------------------------------------------------------------
+/**
+ * ---------------------------------------------------------
+ * Page1Loader
+ * ---------------------------------------------------------
+ */
 
 describe('Page1Loader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
     mockT.mockImplementation(
-      (key: string): string =>
+      (key: string) =>
         defaultTranslations[key] ?? key
+    );
+
+    (
+      formatPhoneNumberApiToUi as jest.Mock
+    ).mockImplementation(
+      (phoneNumber: string) =>
+        `formatted-${phoneNumber}`
     );
   });
 
-  it('renders Page1Component', () => {
-    renderLoader();
+  describe('initialisation', () => {
+    it('sets the default contact phone number when no phone number exists', async () => {
+      renderLoader({
+        windscreenState: {
+          ...windscreenState,
+          contactPhoneNumber: ''
+        },
 
-    expect(
-      screen.getByTestId('DamageGlass')
-    ).toBeInTheDocument();
+        customer
+      });
+
+      await waitFor(() => {
+        expect(
+          mockSetDefaultContactPhoneNumber
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          mockSetDefaultContactPhoneNumber
+        ).toHaveBeenCalledWith(
+          'formatted-0211234567'
+        );
+      });
+    });
+
+    it('does not set the default contact phone number when one already exists', async () => {
+      renderLoader({
+        windscreenState: {
+          ...windscreenState,
+          contactPhoneNumber:
+            '0219999999'
+        },
+
+        customer
+      });
+
+      await waitFor(() => {
+        expect(
+          mockSetDefaultContactPhoneNumber
+        ).not.toHaveBeenCalled();
+      });
+    });
+
+    it('does not set the default contact phone number when the customer has no phones', async () => {
+      renderLoader({
+        windscreenState: {
+          ...windscreenState,
+          contactPhoneNumber: ''
+        },
+
+        customer: {
+          phones: []
+        } as Page1Props['customer']
+      });
+
+      await waitFor(() => {
+        expect(
+          mockSetDefaultContactPhoneNumber
+        ).not.toHaveBeenCalled();
+      });
+    });
+
+    it('sets the default car registration when there is no existing registration', async () => {
+      renderLoader({
+        hasCarRegistration: false
+      });
+
+      await waitFor(() => {
+        expect(
+          mockSetDefaultCarRegistration
+        ).toHaveBeenCalledTimes(1);
+
+        expect(
+          mockSetDefaultCarRegistration
+        ).toHaveBeenCalledWith(
+          'ABC123'
+        );
+      });
+    });
+
+    it('does not set the default car registration when registration already exists', async () => {
+      renderLoader({
+        hasCarRegistration: true
+      });
+
+      await waitFor(() => {
+        expect(
+          mockSetDefaultCarRegistration
+        ).not.toHaveBeenCalled();
+      });
+    });
+
+    it('clears registration confirmation on mount', async () => {
+      renderLoader();
+
+      await waitFor(() => {
+        expect(
+          mockDeselctConfirmation
+        ).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 
-  it('sets the default contact phone number when no contact phone number exists', async () => {
-    renderLoader({
-      windscreenState: {
-        ...windscreenState,
-        contactPhoneNumber: ''
-      }
-    });
+  describe('multiple initialisation conditions', () => {
+    it('initialises both contact phone and car registration when both are missing', async () => {
+      renderLoader({
+        windscreenState: {
+          ...windscreenState,
+          contactPhoneNumber: ''
+        },
 
-    await waitFor(() => {
-      expect(
-        mockSetDefaultContactPhoneNumber
-      ).toHaveBeenCalledWith(
-        'formatted-0211234567'
-      );
-    });
-  });
+        hasCarRegistration: false
+      });
 
-  it('does not set the default contact phone number when one already exists', async () => {
-    renderLoader({
-      windscreenState: {
-        ...windscreenState,
-        contactPhoneNumber: '0219999999'
-      }
-    });
+      await waitFor(() => {
+        expect(
+          mockSetDefaultContactPhoneNumber
+        ).toHaveBeenCalledWith(
+          'formatted-0211234567'
+        );
 
-    await waitFor(() => {
-      expect(
-        mockSetDefaultContactPhoneNumber
-      ).not.toHaveBeenCalled();
-    });
-  });
+        expect(
+          mockSetDefaultCarRegistration
+        ).toHaveBeenCalledWith(
+          'ABC123'
+        );
 
-  it('does not set the default contact phone number when customer has no phones', async () => {
-    renderLoader({
-      customer: {
-        phones: []
-      }
-    });
-
-    await waitFor(() => {
-      expect(
-        mockSetDefaultContactPhoneNumber
-      ).not.toHaveBeenCalled();
-    });
-  });
-
-  it('sets the default car registration when the customer does not already have a registration', async () => {
-    renderLoader({
-      hasCarRegistration: false
-    });
-
-    await waitFor(() => {
-      expect(
-        mockSetDefaultCarRegistration
-      ).toHaveBeenCalledWith('ABC123');
-    });
-  });
-
-  it('does not set the default car registration when the customer already has one', async () => {
-    renderLoader({
-      hasCarRegistration: true
-    });
-
-    await waitFor(() => {
-      expect(
-        mockSetDefaultCarRegistration
-      ).not.toHaveBeenCalled();
-    });
-  });
-
-  it('clears registration confirmation on mount', async () => {
-    renderLoader();
-
-    await waitFor(() => {
-      expect(
-        mockDeselctConfirmation
-      ).toHaveBeenCalledTimes(1);
+        expect(
+          mockDeselctConfirmation
+        ).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });
