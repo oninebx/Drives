@@ -7,8 +7,6 @@ import { renderComponent } from '~/common/test-utilities/renderComponent';
 import { getDefaultQuoteHouseState } from '../state';
 import { getDefaultQuoteLandlordsState } from '../../landlord/state';
 import { getDefaultQuoteState } from '../../state';
-import { getDefaultQuoteSharedState } from '../../shared/state';
-import { moment } from '~/common/twr-moment/twr-moment';
 
 import Page1Container from './Page1';
 import { predicates } from '~/feature/quote/house/state';
