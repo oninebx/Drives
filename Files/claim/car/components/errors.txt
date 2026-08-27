@@ -1,21 +1,31 @@
-DPOPersonalDetailsComponent › MDTextField › passes the correct props to first name field
+ItemDetailsNonSpecifiedComponent › item description › uses default description translation key when override translation does not exist
 
-    expect(jest.fn()).toHaveBeenNthCalledWith(n, ...expected)
+    expect(received).toEqual(expected) // deep equality
 
-    n: 1
-    Expected: ObjectContaining {"ariaLabel": "First name", "id": "damagePropertyOwnerFirstNameField1", "label": "First name", "maxLength": 255, "model": "claim.damagePropertyOwner.firstName", "validateOn": "change"}
-    Received
-    ->     1: called with 0 arguments
-           2: called with 0 arguments
+    - Expected  -  2
+    + Received  + 11
 
-    Number of calls: 4
+    - ObjectContaining {
+    -   "overrideTranslationDescriptionKey": "description",
+    + Object {
+    +   "children": <MDTextField
+    +     id="itemDetailsNonSpecifiedItemDescription-0"
+    +     maxLength={255}
+    +     model="claim.contents.nonSpecifiedItems[0].itemDescription"
+    +     rows={1}
+    +   />,
+    +   "id": "questionItemDetailsNonSpecifiedItemDescription-0",
+    +   "model": "claim.contents.nonSpecifiedItems[0].itemDescription",
+    +   "overrideTranslationDescriptionKey": "descriptions.electronics",
+    +   "translation": "claim/contents:nonSpecifiedItems.itemDescription",
+      }
 
-      175 |       renderComponent();
-      176 |
-    > 177 |       expect(mockMDTextField).toHaveBeenNthCalledWith(
-          |                               ^
-      178 |         1,
-      179 |         expect.objectContaining({
-      180 |           id: 'damagePropertyOwnerFirstNameField1',
+      440 |       );
+      441 |
+    > 442 |       expect(questionCall?.[0]).toEqual(
+          |                                 ^
+      443 |         expect.objectContaining({
+      444 |           overrideTranslationDescriptionKey: 'description'
+      445 |         })
 
-      at Object.toHaveBeenNthCalledWith (src/feature/claim/car/components/dumb/DPOPersonalDetails/DPOPersonalDetails0.test.tsx:177:31)
+      at Object.toEqual (src/feature/claim/contents/components/question/ItemDetailsNonSpecified/ItemDetailsNonSpecified0.test.tsx:442:33)
