@@ -1,9 +1,17 @@
 import * as React from 'react';
 import { render } from '@testing-library/react';
-import { useDispatch, useSelector } from 'react-redux';
+import {
+  useDispatch,
+  useSelector
+} from 'react-redux';
+import {
+  actions as formActions
+} from 'react-redux-form';
 
-import { OtherDriversComponent } from './OtherDrivers';
-import type { OtherDriversProps } from './OtherDrivers';
+import {
+  OtherDriversComponent,
+  type OtherDriversProps
+} from './OtherDrivers';
 
 import {
   getDefaultOtherDriverState,
@@ -17,6 +25,9 @@ import {
 
 import { jumpToNextQuestionEx } from '~/common/utilities';
 
+import type { OtherDriver } from '~/feature/claim/car/state';
+import type { ApplicationState } from '~/root/rootReducer';
+
 /**
  * ---------------------------------------------------------
  * Mocks
@@ -25,40 +36,22 @@ import { jumpToNextQuestionEx } from '~/common/utilities';
 
 const mockDispatch = jest.fn();
 
-const mockChange = jest.fn(
-  (model: string, value: unknown) => ({
-    type: 'CHANGE',
-    model,
-    value
-  })
-);
-
-const mockSetTouched = jest.fn(
-  (model: string) => ({
-    type: 'SET_TOUCHED',
-    model
-  })
-);
-
-const mockSetSubmitted = jest.fn(
-  (model: string) => ({
-    type: 'SET_SUBMITTED',
-    model
-  })
-);
-
 const mockAddDetailsOrSkip = jest.fn(
-  () => <div data-testid="add-or-skip" />
+  (_props: AddDetailsOrSkipProps) => (
+    <div data-testid="add-or-skip" />
+  )
 );
 
 const mockMultiBlock = jest.fn(
-  () => <div data-testid="multi-block" />
+  (_props: MultiBlockProps) => (
+    <div data-testid="multi-block" />
+  )
 );
 
 jest.mock('react-redux', () => ({
   connect:
     () =>
-    (Component: React.ComponentType<any>) =>
+    (Component: React.ComponentType<OtherDriversProps>) =>
       Component,
 
   useDispatch: jest.fn(),
@@ -67,9 +60,9 @@ jest.mock('react-redux', () => ({
 
 jest.mock('react-redux-form', () => ({
   actions: {
-    change: mockChange,
-    setTouched: mockSetTouched,
-    setSubmitted: mockSetSubmitted
+    change: jest.fn(),
+    setTouched: jest.fn(),
+    setSubmitted: jest.fn()
   }
 }));
 
@@ -80,13 +73,7 @@ jest.mock('~/common/utilities', () => ({
 jest.mock('~/feature/claim/car/state', () => ({
   modelPath: 'claim.car',
 
-  getDefaultOtherDriverState: jest.fn(() => ({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    email: '',
-    models: []
-  })),
+  getDefaultOtherDriverState: jest.fn(),
 
   selectors: {
     getOtherDrivers: jest.fn(),
@@ -108,9 +95,8 @@ jest.mock('~/feature/claim/shared/state', () => ({
 }));
 
 /**
- * These child components have their own unit tests.
- *
- * They are intentionally mocked without inspecting their props.
+ * Child components have their own unit tests.
+ * Their internal behaviour is intentionally not tested here.
  */
 jest.mock('~/feature/claim/car/components', () => ({
   OtherDriverDetails: () => (
@@ -119,16 +105,67 @@ jest.mock('~/feature/claim/car/components', () => ({
 }));
 
 jest.mock('~/feature/claim/shared/components', () => ({
-  AddDetailsOrSkip: (props: unknown) =>
-    mockAddDetailsOrSkip(props),
+  Question: ({
+    children
+  }: QuestionProps) => (
+    <div data-testid="question">
+      {children}
+    </div>
+  ),
 
-  MultiBlock: (props: unknown) =>
+  AddDetailsOrSkip: (
+    props: AddDetailsOrSkipProps
+  ) => mockAddDetailsOrSkip(props)
+}));
+
+/**
+ * Include all dumb components that may be exported from
+ * the barrel and mock AddonDialog as well, so its real
+ * styled-component dependency is never evaluated.
+ */
+jest.mock('~/common/components/dumb', () => ({
+  MultiBlock: (props: MultiBlockProps) =>
     mockMultiBlock(props),
 
-  Question: () => (
-    <div data-testid="question" />
+  AddonDialog: () => (
+    <div data-testid="addon-dialog" />
   )
 }));
+
+/**
+ * ---------------------------------------------------------
+ * Mock prop types
+ * ---------------------------------------------------------
+ */
+
+interface QuestionProps {
+  children: React.ReactNode;
+}
+
+interface AddDetailsOrSkipProps {
+  id: string;
+  onClickYes: () => void;
+  onClickNo: () => void;
+  yesSelected: boolean;
+}
+
+interface MultiBlockItem {
+  index: number;
+  showAddLink: boolean;
+  showRemoveLink: boolean;
+  children: React.ReactNode;
+}
+
+interface MultiBlockProps {
+  id: string;
+  headerLabel: string;
+  model: string;
+  multiBlockItems: MultiBlockItem[];
+  addLinkText: string;
+  removeLinkText: string;
+  handleAdd: (index: number) => void;
+  handleRemove: (index: number) => void;
+}
 
 /**
  * ---------------------------------------------------------
@@ -136,19 +173,45 @@ jest.mock('~/feature/claim/shared/components', () => ({
  * ---------------------------------------------------------
  */
 
-const otherDriver1 = {
+const otherDriver1: OtherDriver = {
   firstName: 'John',
   lastName: 'Smith',
+  phone: '021123456',
+  email: 'john@example.com',
+  address: undefined,
+  make: 'Toyota',
+  model: 'Corolla',
   models: ['Corolla', 'Camry']
 };
 
-const otherDriver2 = {
+const otherDriver2: OtherDriver = {
   firstName: 'Jane',
   lastName: 'Brown',
+  phone: '021987654',
+  email: 'jane@example.com',
+  address: undefined,
+  make: 'Mazda',
+  model: 'Mazda 3',
   models: ['Mazda 3']
 };
 
-const vehicleMakes = ['Toyota', 'Mazda'];
+const defaultOtherDriver: OtherDriver = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  email: '',
+  address: undefined,
+  make: '',
+  model: '',
+  models: []
+};
+
+const vehicleMakes = [
+  'Toyota',
+  'Mazda'
+];
+
+const claimType = 'car';
 
 /**
  * ---------------------------------------------------------
@@ -156,49 +219,63 @@ const vehicleMakes = ['Toyota', 'Mazda'];
  * ---------------------------------------------------------
  */
 
-type SelectorOptions = {
-  otherDrivers?: unknown[];
-  claimType?: string;
-  makes?: string[];
+interface SelectorOptions {
+  otherDrivers?: OtherDriver[];
   hasOtherDrivers?: boolean;
   maxOtherDriversReached?: boolean;
-};
+}
 
 const setupSelectors = ({
   otherDrivers = [otherDriver1],
-  claimType = 'car',
-  makes = vehicleMakes,
   hasOtherDrivers = true,
   maxOtherDriversReached = false
 }: SelectorOptions = {}) => {
   (
-    selectors.getOtherDrivers as jest.Mock
+    selectors.getOtherDrivers as jest.MockedFunction<
+      typeof selectors.getOtherDrivers
+    >
   ).mockReturnValue(otherDrivers);
 
   (
-    selectors.getVehicleMakes as jest.Mock
-  ).mockReturnValue(makes);
+    selectors.getVehicleMakes as jest.MockedFunction<
+      typeof selectors.getVehicleMakes
+    >
+  ).mockReturnValue(vehicleMakes);
 
   (
-    selectors.hasOtherDrivers as jest.Mock
+    selectors.hasOtherDrivers as jest.MockedFunction<
+      typeof selectors.hasOtherDrivers
+    >
   ).mockReturnValue(hasOtherDrivers);
 
   (
-    selectors.maxOtherDriversReached as jest.Mock
+    selectors.maxOtherDriversReached as jest.MockedFunction<
+      typeof selectors.maxOtherDriversReached
+    >
   ).mockReturnValue(maxOtherDriversReached);
 
   (
-    sharedSelectors.getClaimType as jest.Mock
+    sharedSelectors.getClaimType as jest.MockedFunction<
+      typeof sharedSelectors.getClaimType
+    >
   ).mockReturnValue(claimType);
 
-  /**
-   * Execute the selectors supplied to useSelector.
-   *
-   * We are testing OtherDriversComponent, not the selectors.
-   */
-  (useSelector as jest.Mock).mockImplementation(
-    (selector: (state: unknown) => unknown) =>
-      selector({})
+  (
+    getDefaultOtherDriverState as jest.MockedFunction<
+      typeof getDefaultOtherDriverState
+    >
+  ).mockReturnValue(defaultOtherDriver);
+
+  (
+    useSelector as jest.MockedFunction<
+      typeof useSelector
+    >
+  ).mockImplementation(
+    (
+      selector: (
+        state: ApplicationState
+      ) => ReturnType<typeof selectors.getOtherDrivers>
+    ) => selector({} as ApplicationState)
   );
 };
 
@@ -207,37 +284,18 @@ const renderComponent = (
 ) => {
   setupSelectors(options);
 
-  return render(
+  render(
     <OtherDriversComponent
       {...({} as OtherDriversProps)}
     />
   );
 };
 
-const getAddDetailsOrSkipProps = () =>
-  mockAddDetailsOrSkip.mock
-    .calls[0][0] as {
-      onClickYes: () => void;
-      onClickNo: () => void;
-      yesSelected: boolean;
-    };
+const getAddDetailsOrSkipProps = (): AddDetailsOrSkipProps =>
+  mockAddDetailsOrSkip.mock.calls[0][0];
 
-const getMultiBlockProps = () =>
-  mockMultiBlock.mock
-    .calls[0][0] as {
-      id: string;
-      headerLabel: string;
-      model: string;
-      multiBlockItems: Array<{
-        index: number;
-        showAddLink: boolean;
-        showRemoveLink: boolean;
-      }>;
-      addLinkText: string;
-      removeLinkText: string;
-      handleAdd: (index: number) => void;
-      handleRemove: (index: number) => void;
-    };
+const getMultiBlockProps = (): MultiBlockProps =>
+  mockMultiBlock.mock.calls[0][0];
 
 /**
  * ---------------------------------------------------------
@@ -249,9 +307,11 @@ describe('OtherDriversComponent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    (useDispatch as jest.Mock).mockReturnValue(
-      mockDispatch
-    );
+    (
+      useDispatch as jest.MockedFunction<
+        typeof useDispatch
+      >
+    ).mockReturnValue(mockDispatch);
 
     setupSelectors();
   });
@@ -300,7 +360,7 @@ describe('OtherDriversComponent', () => {
    */
 
   describe('AddDetailsOrSkip', () => {
-    it('passes the current other driver state as yesSelected', () => {
+    it('passes hasOtherDrivers as yesSelected', () => {
       renderComponent({
         hasOtherDrivers: true
       });
@@ -320,7 +380,7 @@ describe('OtherDriversComponent', () => {
       ).toBe(false);
     });
 
-    it('updates the state and adds a driver when Yes is clicked', () => {
+    it('adds a new driver when Yes is clicked', () => {
       renderComponent({
         otherDrivers: [otherDriver1]
       });
@@ -328,42 +388,42 @@ describe('OtherDriversComponent', () => {
       getAddDetailsOrSkipProps().onClickYes();
 
       expect(
-        mockSetTouched
+        formActions.setTouched
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`
       );
 
       expect(
-        mockSetSubmitted
+        formActions.setSubmitted
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`
       );
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`,
         true
       );
 
       expect(
-        mockChange
+        getDefaultOtherDriverState
+      ).toHaveBeenCalledTimes(1);
+
+      expect(
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
-        expect.arrayContaining([
+        [
           otherDriver1,
-          expect.objectContaining({
-            firstName: '',
-            lastName: '',
-            phone: '',
-            email: '',
-            models: []
-          })
-        ])
+          defaultOtherDriver
+        ]
       );
+
+      expect(mockDispatch).toHaveBeenCalledTimes(4);
     });
 
-    it('updates the state and clears all drivers when No is clicked', () => {
+    it('clears all drivers when No is clicked', () => {
       renderComponent({
         otherDrivers: [
           otherDriver1,
@@ -374,29 +434,35 @@ describe('OtherDriversComponent', () => {
       getAddDetailsOrSkipProps().onClickNo();
 
       expect(
-        mockSetTouched
+        formActions.setTouched
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`
       );
 
       expect(
-        mockSetSubmitted
+        formActions.setSubmitted
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`
       );
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`,
         true
       );
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
         []
+      );
+
+      expect(
+        jumpToNextQuestionEx
+      ).toHaveBeenCalledWith(
+        '#addOrSkipOtherDrivers'
       );
     });
 
@@ -459,21 +525,12 @@ describe('OtherDriversComponent', () => {
         ]
       });
 
-      const props =
-        getMultiBlockProps();
-
       expect(
-        props.multiBlockItems
+        getMultiBlockProps().multiBlockItems
       ).toHaveLength(2);
-
-      expect(
-        props.multiBlockItems.map(
-          item => item.index
-        )
-      ).toEqual([0, 1]);
     });
 
-    it('shows the remove link for every driver', () => {
+    it('creates items with the correct indexes', () => {
       renderComponent({
         otherDrivers: [
           otherDriver1,
@@ -481,13 +538,25 @@ describe('OtherDriversComponent', () => {
         ]
       });
 
-      const props =
-        getMultiBlockProps();
+      expect(
+        getMultiBlockProps()
+          .multiBlockItems
+          .map(item => item.index)
+      ).toEqual([0, 1]);
+    });
+
+    it('shows the remove link for every item', () => {
+      renderComponent({
+        otherDrivers: [
+          otherDriver1,
+          otherDriver2
+        ]
+      });
 
       expect(
-        props.multiBlockItems.map(
-          item => item.showRemoveLink
-        )
+        getMultiBlockProps()
+          .multiBlockItems
+          .map(item => item.showRemoveLink)
       ).toEqual([true, true]);
     });
   });
@@ -499,7 +568,7 @@ describe('OtherDriversComponent', () => {
    */
 
   describe('add link visibility', () => {
-    it('shows the add link only for the last driver', () => {
+    it('shows the add link only on the last driver', () => {
       renderComponent({
         otherDrivers: [
           otherDriver1,
@@ -508,17 +577,14 @@ describe('OtherDriversComponent', () => {
         maxOtherDriversReached: false
       });
 
-      const props =
-        getMultiBlockProps();
-
       expect(
-        props.multiBlockItems.map(
-          item => item.showAddLink
-        )
+        getMultiBlockProps()
+          .multiBlockItems
+          .map(item => item.showAddLink)
       ).toEqual([false, true]);
     });
 
-    it('does not show the add link when the maximum number of drivers is reached', () => {
+    it('does not show the add link when maximum drivers are reached', () => {
       renderComponent({
         otherDrivers: [
           otherDriver1,
@@ -527,82 +593,87 @@ describe('OtherDriversComponent', () => {
         maxOtherDriversReached: true
       });
 
-      const props =
-        getMultiBlockProps();
+      expect(
+        getMultiBlockProps()
+          .multiBlockItems
+          .map(item => item.showAddLink)
+      ).toEqual([false, false]);
+    });
+
+    it('does not show the add link on a non-last driver', () => {
+      renderComponent({
+        otherDrivers: [
+          otherDriver1,
+          otherDriver2
+        ],
+        maxOtherDriversReached: false
+      });
 
       expect(
-        props.multiBlockItems.map(
-          item => item.showAddLink
-        )
-      ).toEqual([false, false]);
+        getMultiBlockProps()
+          .multiBlockItems[0]
+          .showAddLink
+      ).toBe(false);
     });
   });
 
   /**
    * -------------------------------------------------------
-   * Add driver
+   * handleAdd
    * -------------------------------------------------------
    */
 
   describe('handleAdd', () => {
-    it('adds a default driver to the existing drivers', () => {
+    it('adds a default other driver', () => {
       renderComponent({
         otherDrivers: [otherDriver1]
       });
 
-      const props =
-        getMultiBlockProps();
-
-      props.handleAdd(0);
+      getMultiBlockProps().handleAdd(0);
 
       expect(
         getDefaultOtherDriverState
       ).toHaveBeenCalledTimes(1);
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
-        expect.arrayContaining([
+        [
           otherDriver1,
-          expect.objectContaining({
-            firstName: '',
-            lastName: '',
-            phone: '',
-            email: '',
-            models: []
-          })
-        ])
+          defaultOtherDriver
+        ]
       );
+
+      expect(
+        mockDispatch
+      ).toHaveBeenCalledTimes(1);
     });
   });
 
   /**
    * -------------------------------------------------------
-   * Remove driver
+   * handleRemove
    * -------------------------------------------------------
    */
 
   describe('handleRemove', () => {
-    it('removes the only driver and resets the indicator', () => {
+    it('removes the only other driver', () => {
       renderComponent({
         otherDrivers: [otherDriver1]
       });
 
-      const props =
-        getMultiBlockProps();
-
-      props.handleRemove(0);
+      getMultiBlockProps().handleRemove(0);
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
         []
       );
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`,
         false
@@ -621,27 +692,28 @@ describe('OtherDriversComponent', () => {
         ]
       });
 
-      const props =
-        getMultiBlockProps();
-
-      props.handleRemove(0);
+      getMultiBlockProps().handleRemove(0);
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
         [otherDriver2]
       );
 
       expect(
-        mockChange
+        formActions.change
       ).not.toHaveBeenCalledWith(
         `${modelPath}.otherDriversInd`,
         false
       );
+
+      expect(
+        mockDispatch
+      ).toHaveBeenCalledTimes(1);
     });
 
-    it('removes the last driver when its index is provided', () => {
+    it('removes the last driver when the last index is provided', () => {
       renderComponent({
         otherDrivers: [
           otherDriver1,
@@ -649,13 +721,10 @@ describe('OtherDriversComponent', () => {
         ]
       });
 
-      const props =
-        getMultiBlockProps();
-
-      props.handleRemove(1);
+      getMultiBlockProps().handleRemove(1);
 
       expect(
-        mockChange
+        formActions.change
       ).toHaveBeenCalledWith(
         `${modelPath}.otherDrivers`,
         [otherDriver1]
