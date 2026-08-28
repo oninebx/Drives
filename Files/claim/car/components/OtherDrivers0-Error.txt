@@ -1,0 +1,19 @@
+Cannot create styled-component for component: undefined.
+
+      101 | `;
+      102 | export const Title = (props: TypographyProps) => (
+    > 103 |   <legend>
+          |                                         ^
+      104 |     <TitleComponent {...props} />
+      105 |   </legend>
+      106 | );
+
+      at Uint32Array (node_modules/styled-components/src/sheet/GroupedTag.js:23:27)
+      at e (node_modules/styled-components/src/constructors/constructWithOptions.js:23:33)
+      at ke (node_modules/styled-components/src/utils/domElements.js:17:3)
+      at Object.<anonymous> (src/common/components/base/QuestionV2/QuestionV2.tsx:103:53)
+      at Object.<anonymous> (src/common/components/base/index.tsx:45:14)
+      at Object.<anonymous> (src/common/components/dumb/AddonDialog/AddonDialog.tsx:12:15)
+      at Object.<anonymous> (src/common/components/dumb/index.tsx:5:14)
+      at Object.<anonymous> (src/feature/claim/car/components/smart/OtherDrivers/OtherDrivers.tsx:23:15)
+      at Object.<anonymous> (src/feature/claim/car/components/smart/OtherDrivers/OtherDrivers0.test.tsx:64:23)
