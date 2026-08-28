@@ -8,10 +8,8 @@ import {
   actions as formActions
 } from 'react-redux-form';
 
-import {
-  OtherDriversComponent,
-  type OtherDriversProps
-} from './OtherDrivers';
+import { OtherDriversComponent } from './OtherDrivers';
+import type { OtherDriversProps } from './OtherDrivers';
 
 import {
   getDefaultOtherDriverState,
