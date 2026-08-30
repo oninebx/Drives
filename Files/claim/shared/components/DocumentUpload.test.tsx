@@ -1,262 +1,1191 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { renderComponent } from '~/common/test-utilities/renderComponent';
-import type { ApplicationFormState } from '~/root/rootReducer';
-import { DocumentUpload } from './DocumentUpload';
-import { getDefaultClaimSharedState } from '../../../state';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 
-describe('Document upload test', () => {
-  localStorage.setItem('access_token', 'TOKEN');
+import {
+  DocumentUploadComponent,
+  DocumentUpload
+} from './DocumentUpload';
 
-  const props: React.ComponentProps<typeof DocumentUpload> = {};
+import { thunks } from '~/feature/claim/shared/state';
+import {
+  areClaimStagedFiles,
+  getClaimFileList,
+  getClaimNumber,
+  getClaimStagedFileList
+} from '~/feature/claim/shared/state/selectors';
+import { getDefaultRequestOptions } from '~/common/state/services';
+import { logApiError } from '~/common/utilities';
+import { useDocumentUploadViewModel } from './useDocumentUploadViewModel';
+import {
+  useAppDispatch,
+  useAppSelector
+} from '~/root/store';
 
-  const createFile = (name: string, size: number, type: string) => {
-    const file = new File([], name, { type });
-    Object.defineProperty(file, 'size', {
-      get() {
-        return size;
-      }
+/**
+ * ---------------------------------------------------------------------------
+ * Mocks
+ * ---------------------------------------------------------------------------
+ */
+
+jest.mock('~/root/store', () => ({
+  useAppDispatch: jest.fn(),
+  useAppSelector: jest.fn()
+}));
+
+jest.mock('~/feature/claim/shared/state', () => ({
+  thunks: {
+    getUploadedDocumentList: jest.fn(),
+    addAcceptedClaimDocuments: jest.fn(),
+    addRejectedClaimDocuments: jest.fn(),
+    deleteClaimDocument: jest.fn()
+  }
+}));
+
+jest.mock('~/feature/claim/shared/state/selectors', () => ({
+  areClaimStagedFiles: jest.fn(),
+  getClaimFileList: jest.fn(),
+  getClaimNumber: jest.fn(),
+  getClaimStagedFileList: jest.fn()
+}));
+
+jest.mock('~/common/state/services', () => ({
+  getDefaultRequestOptions: jest.fn()
+}));
+
+jest.mock('~/common/utilities', () => ({
+  logApiError: jest.fn()
+}));
+
+jest.mock('./useDocumentUploadViewModel', () => ({
+  useDocumentUploadViewModel: jest.fn()
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key
+  })
+}));
+
+/**
+ * Dropzone is mocked because its own behaviour is not the responsibility
+ * of DocumentUploadComponent.
+ */
+jest.mock('react-dropzone', () => ({
+  __esModule: true,
+  default: ({
+    children,
+    onDropAccepted,
+    onDropRejected
+  }: any) => {
+    const [isDragActive, setIsDragActive] =
+      React.useState(false);
+
+    const open = jest.fn();
+
+    const getRootProps = () => ({
+      onDragEnter: () => setIsDragActive(true),
+      onDragLeave: () => setIsDragActive(false)
     });
-    return file;
+
+    const getInputProps = () => ({
+      type: 'file'
+    });
+
+    return (
+      <div data-testid="mock-dropzone">
+        <div
+          data-testid="mock-dropzone-root"
+          {...getRootProps()}>
+          <input
+            data-testid="drop-input"
+            {...getInputProps()}
+          />
+
+          <button
+            type="button"
+            data-testid="drop-accepted"
+            onClick={() =>
+              onDropAccepted([
+                {
+                  name: 'accepted.pdf'
+                }
+              ])
+            }>
+            trigger accepted
+          </button>
+
+          <button
+            type="button"
+            data-testid="drop-rejected"
+            onClick={() =>
+              onDropRejected([
+                {
+                  file: {
+                    name: 'rejected.pdf'
+                  },
+                  errors: []
+                }
+              ])
+            }>
+            trigger rejected
+          </button>
+
+          {children({
+            getRootProps,
+            getInputProps,
+            open,
+            isDragActive
+          })}
+        </div>
+      </div>
+    );
+  }
+}));
+
+/**
+ * TUI components.
+ *
+ * We only need their basic DOM representation. Their own behaviour is
+ * covered by their own tests.
+ */
+jest.mock('@tower/tui', () => ({
+  Button: ({
+    children,
+    ...props
+  }: any) => (
+    <button {...props}>
+      {children}
+    </button>
+  ),
+
+  Card: {
+    Container: ({ children, ...props }: any) => (
+      <div {...props}>{children}</div>
+    ),
+
+    Content: ({ children, ...props }: any) => (
+      <div {...props}>{children}</div>
+    )
+  },
+
+  Typography: ({
+    children,
+    ...props
+  }: any) => <div {...props}>{children}</div>
+}));
+
+jest.mock('@tower/tui/icons', () => ({
+  CloudUploadIcon: () => (
+    <span data-testid="CloudUploadIcon" />
+  ),
+
+  DeleteIcon: () => (
+    <span data-testid="DeleteIcon" />
+  ),
+
+  ErrorIcon: () => (
+    <span data-testid="ErrorIcon" />
+  ),
+
+  SecurityIcon: () => (
+    <span data-testid="SecurityIcon" />
+  ),
+
+  CheckIcon: () => (
+    <span data-testid="CheckIcon" />
+  )
+}));
+
+/**
+ * Styled components are mocked as simple DOM elements.
+ *
+ * We deliberately do not test styling here.
+ */
+jest.mock('./DocumentUpload.styles', () => {
+  // const createComponent =
+  //   (tag = 'div') =>
+  //   ({ children, ...props }: any) =>
+  //     React.createElement(tag, props, children);
+
+  const createComponent = (testId: string) => {
+    const MockComponent = ({ children, ...props }: React.PropsWithChildren<Record<string, string>>) =>
+    (
+      <div data-testid={testId} {...props}>
+        {children}
+      </div>
+    );
+    MockComponent.displayName = `MockComponent(${testId})`;
+    return MockComponent;
+  }
+
+
+
+  return {
+    DropzoneOuterWrapper: createComponent('dropzone-outer-wrapper'),
+    DropzoneWrapper: createComponent('dropzone-wrapper'),
+    DropzoneHelperContainer: createComponent('dropzone-helper-container'),
+    DragAndDropText: createComponent('drag-and-drop-text'),
+    FileListWrapper: createComponent('file-list-wrapper'),
+    StyledFileItemCardContainer: createComponent('styled-file-item-card-container'),
+    FileItem: createComponent('file-item'),
+    FileProgress: createComponent('file-progress'),
+    IconTitleContainer: createComponent('icon-title-container'),
+    StatusIconContainer: createComponent('status-icon-container'),
+    StagedFileName: createComponent('staged-file-name'),
+    StyledLinearProgress: createComponent('styled-linear-progress'),
+    FileDescription: createComponent('file-description'),
+    RemoveContainer: createComponent('remove-container'),
+    UploadContainer: createComponent('upload-container'),
+    UploadCheckTitleContainer: createComponent('upload-check-title-container')
   };
+});
 
-  const createDataTransferWithFiles = (files: File[]) => {
-    return {
-      dataTransfer: {
-        files,
-        items: files.map((file) => ({
-          kind: 'file',
-          size: file.size,
-          type: file.type,
-          getAsFile: () => file
-        })),
-        types: ['Files']
+/**
+ * ---------------------------------------------------------------------------
+ * Typed mock helpers
+ * ---------------------------------------------------------------------------
+ */
+
+const mockDispatch =
+  useAppDispatch as unknown as jest.Mock;
+
+const mockUseSelector =
+  useAppSelector as unknown as jest.Mock;
+
+const mockUseDocumentUploadViewModel =
+  useDocumentUploadViewModel as unknown as jest.Mock;
+
+const mockGetUploadedDocumentList =
+  thunks.getUploadedDocumentList as unknown as jest.Mock;
+
+const mockAddAcceptedClaimDocuments =
+  thunks.addAcceptedClaimDocuments as unknown as jest.Mock;
+
+const mockAddRejectedClaimDocuments =
+  thunks.addRejectedClaimDocuments as unknown as jest.Mock;
+
+const mockDeleteClaimDocument =
+  thunks.deleteClaimDocument as unknown as jest.Mock;
+
+const mockGetDefaultRequestOptions =
+  getDefaultRequestOptions as unknown as jest.Mock;
+
+const mockLogApiError =
+  logApiError as unknown as jest.Mock;
+
+/**
+ * ---------------------------------------------------------------------------
+ * Test data
+ * ---------------------------------------------------------------------------
+ */
+
+const claimNumber = 'CLM123';
+
+const defaultViewModel = {
+  maxFileSize: 10 * 1024 * 1024,
+
+  allowableFileExtensions: {
+    'application/pdf': ['.pdf']
+  },
+
+  getMappedFileStatus: jest.fn(
+    () => 'success'
+  ),
+
+  getFileProgressValue: jest.fn(
+    () => 100
+  ),
+
+  getFileStatusDescription: jest.fn(
+    () => 'documentUpload.uploadStatus.complete'
+  ),
+
+  invalidCharacterValidator: jest.fn(),
+
+  sendRequest: jest.fn()
+};
+
+const createFile = (
+  overrides: Record<string, unknown> = {}
+) => ({
+  name: 'test.pdf',
+  clientStatus: 'staged',
+  serverStatus: null,
+  percentage: 0,
+  fileSize: 100,
+  ...overrides
+});
+
+const createFileList = (
+  file = createFile()
+) => ({
+  [file.name]: file
+});
+
+/**
+ * Because the component calls useAppSelector with different selectors,
+ * return the appropriate value based on the selector function.
+ */
+const configureSelectors = ({
+  fileList = {},
+  stagedFiles = [],
+  hasStagedFiles = false,
+  claim = claimNumber
+}: {
+  fileList?: Record<string, any>;
+  stagedFiles?: any[];
+  hasStagedFiles?: boolean;
+  claim?: string;
+} = {}) => {
+  mockUseSelector.mockImplementation(
+    (selector: unknown) => {
+      if (selector === getClaimFileList) {
+        return fileList;
+      }
+
+      if (selector === getClaimStagedFileList) {
+        return stagedFiles;
+      }
+
+      if (selector === areClaimStagedFiles) {
+        return hasStagedFiles;
+      }
+
+      if (selector === getClaimNumber) {
+        return claim;
+      }
+
+      return undefined;
+    }
+  );
+};
+
+/**
+ * ---------------------------------------------------------------------------
+ * Setup
+ * ---------------------------------------------------------------------------
+ */
+
+beforeEach(() => {
+  jest.clearAllMocks();
+
+  mockDispatch.mockReturnValue(jest.fn());
+
+  mockGetDefaultRequestOptions.mockReturnValue({
+    headers: {}
+  });
+
+  mockUseDocumentUploadViewModel.mockReturnValue(
+    defaultViewModel
+  );
+
+  configureSelectors();
+});
+
+/**
+ * ===========================================================================
+ * DocumentUploadLoader
+ * ===========================================================================
+ */
+
+describe('DocumentUploadLoader', () => {
+  it('calls getUploadedDocumentList on mount', () => {
+    const fileList = {
+      existing: {
+        name: 'existing.pdf'
       }
     };
-  };
-  const maxFileSize = 10 * 1024 * 1024; // 10 MB
 
-  it('Should render correctly before any action to the dropzone', () => {
-    renderComponent(<DocumentUpload {...props} />);
-    expect(screen.getByText('Drag and drop files, or')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Browse files' })).toBeInTheDocument();
-    expect(screen.getByText('Maximum size per file: 10MB')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeDisabled();
-  });
-
-  it('it should be in staged area when dropped if file is in the list of accepted files', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('test.png', 8, 'image/png')];
-    const data = createDataTransferWithFiles(file);
-    act(() => {
-      fireEvent.drop(dropzone, data);
-    });
-    expect(await screen.findByText('test.png')).toBeInTheDocument();
-    expect(await screen.findByText('documentUpload.uploadStatus.ready')).toBeInTheDocument();
-    expect(await screen.findByText('Remove')).toBeInTheDocument();
-    expect(await screen.findByText('documentUpload.check.title')).toBeInTheDocument();
-    expect(await screen.findByText('documentUpload.check.description')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Upload files' })).not.toBeDisabled();
-  });
-
-  it('it should show error messaging in staged area when dropped if file is NOT in the list of accepted files', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('dontacceptme.json', 15, 'application/json')];
-    const data = createDataTransferWithFiles(file);
-
-    act(() => {
-      fireEvent.drop(dropzone, data);
+    configureSelectors({
+      fileList,
+      claim: claimNumber
     });
 
-    expect(await screen.findByText('dontacceptme.json')).toBeInTheDocument();
-    expect(await screen.findByText('documentUpload.errors.fileType')).toBeInTheDocument();
-    expect(await screen.findByText('Remove')).toBeInTheDocument();
+    render(<DocumentUpload />);
+
+    expect(
+      mockGetUploadedDocumentList
+    ).toHaveBeenCalledWith(
+      claimNumber,
+      fileList
+    );
   });
 
-  it('it should show error messaging in staged area when dropped if file is OVER the maxFileSize', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('toolarge.png', maxFileSize + 1, 'image/png')];
-    const data = createDataTransferWithFiles(file);
-
-    act(() => {
-      fireEvent.drop(dropzone, data);
-    });
-    expect(await screen.findByText('toolarge.png')).toBeInTheDocument();
-    expect(await screen.findByText('documentUpload.errors.fileSize')).toBeInTheDocument();
-    expect(await screen.findByText('Remove')).toBeInTheDocument();
-  });
-
-  it('should change text to Drop Files here when isDragActive is activated', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('test.png', 8, 'image/png')];
-
-    act(() => {
-      fireEvent.dragEnter(dropzone, file);
+  it('uses the claim number from the selector', () => {
+    configureSelectors({
+      claim: 'CLM999'
     });
 
-    expect(await screen.findByText('Drop files here')).toBeInTheDocument();
-    expect(await screen.findByText('Maximum size per file: 10MB')).toBeInTheDocument();
+    render(<DocumentUpload />);
+
+    expect(
+      mockGetUploadedDocumentList
+    ).toHaveBeenCalledWith(
+      'CLM999',
+      expect.anything()
+    );
   });
 
-  it('should be removed from the list of STAGED files when the remove is clicked', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('test.png', 8, 'image/png')];
-    const data = createDataTransferWithFiles(file);
-
-    act(() => {
-      fireEvent.drop(dropzone, data);
-    });
-    expect(await screen.findByText('test.png')).toBeInTheDocument();
-
-    const removeButton = screen.getByRole('button', { name: 'Remove' });
-
-    userEvent.click(removeButton);
-
-    expect(screen.queryByText('test.png')).not.toBeInTheDocument();
-    expect(screen.queryByText('documentUpload.uploadStatus.ready')).not.toBeInTheDocument();
-    expect(screen.queryByText('Remove')).not.toBeInTheDocument();
-    expect(screen.queryByText('documentUpload.check.title')).not.toBeInTheDocument();
-    expect(screen.queryByText('documentUpload.check.description')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeDisabled();
-  });
-
-  it('should show in the staged area if there are stagedFiles', async () => {
-    const initialState = {
-      myForms: {
-        sharedClaim: {
-          ...getDefaultClaimSharedState(),
-          fileList: {
-            test: {
-              name: 'staged.png',
-              clientStatus: 'staged',
-              serverStatus: null,
-              percentage: 0,
-              fileSize: 8
-            }
-          }
-        }
-      } as Partial<ApplicationFormState>
+  it('passes fileList from the selector to getUploadedDocumentList', () => {
+    const fileList = {
+      existing: {
+        name: 'existing.pdf'
+      }
     };
-    renderComponent(<DocumentUpload {...props} />, { initialState });
 
-    expect(await screen.getByText('staged.png')).toBeInTheDocument();
-    expect(await screen.getByText('documentUpload.uploadStatus.ready')).toBeInTheDocument();
-    expect(await screen.getByText('Remove')).toBeInTheDocument();
-  });
-
-  it('should show uploading state if uploading', async () => {
-    const initialState = {
-      myForms: {
-        sharedClaim: {
-          ...getDefaultClaimSharedState(),
-          fileList: {
-            test: {
-              name: 'uploading.png',
-              clientStatus: 'inProgress',
-              serverStatus: null,
-              percentage: 0,
-              fileSize: 15
-            }
-          }
-        }
-      } as Partial<ApplicationFormState>
-    };
-    renderComponent(<DocumentUpload {...props} />, { initialState });
-
-    expect(screen.getByText('uploading.png')).toBeInTheDocument();
-    expect(screen.getByText('documentUpload.uploadStatus.uploading')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeDisabled();
-  });
-
-  it('should show scanning state if scanning', async () => {
-    const initialState = {
-      myForms: {
-        sharedClaim: {
-          ...getDefaultClaimSharedState(),
-          fileList: {
-            test: {
-              name: 'scanning.png',
-              clientStatus: 'uploaded',
-              serverStatus: 'inProgress',
-              percentage: 0,
-              fileSize: 8
-            }
-          }
-        }
-      } as Partial<ApplicationFormState>
-    };
-    renderComponent(<DocumentUpload {...props} />, { initialState });
-    expect(screen.getByText('scanning.png')).toBeInTheDocument();
-    expect(screen.getByText('documentUpload.uploadStatus.scanning')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeDisabled();
-  });
-
-  it('should show uploaded state if uploaded', async () => {
-    const initialState = {
-      myForms: {
-        sharedClaim: {
-          ...getDefaultClaimSharedState(),
-          fileList: {
-            test: {
-              name: 'uploaded.png',
-              clientStatus: 'uploaded',
-              serverStatus: 'uploaded',
-              percentage: 100,
-              fileSize: 8
-            }
-          }
-        }
-      } as Partial<ApplicationFormState>
-    };
-    renderComponent(<DocumentUpload {...props} />, { initialState });
-    expect(screen.getByText('uploaded.png')).toBeInTheDocument();
-    expect(screen.getByText('documentUpload.uploadStatus.complete')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload files' })).toBeDisabled();
-  });
-
-  it('it should show error messaging when file name has invalid characters', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('<dontacceptme>.json', 15, 'application/json')];
-    const data = createDataTransferWithFiles(file);
-
-    act(() => {
-      fireEvent.drop(dropzone, data);
+    configureSelectors({
+      fileList
     });
 
-    await waitFor(() => {
-      expect(screen.getByText('<dontacceptme>.json')).toBeInTheDocument();
-      expect(screen.getByText('Remove')).toBeInTheDocument();
-      expect(screen.getByText('documentUpload.errors.fileName')).toBeInTheDocument();
+    render(<DocumentUpload />);
+
+    expect(
+      mockGetUploadedDocumentList
+    ).toHaveBeenCalledWith(
+      claimNumber,
+      fileList
+    );
+  });
+});
+
+/**
+ * ===========================================================================
+ * DocumentUploadComponent
+ * ===========================================================================
+ */
+
+describe('DocumentUploadComponent', () => {
+  describe('dropzone', () => {
+    it('renders the initial dropzone content', () => {
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByText(
+          'Drag and drop files, or'
+        )
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Browse files'
+        })
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          'Maximum size per file: 10MB'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('calls addAcceptedClaimDocuments with file name when files are accepted', () => {
+      const fileList = {
+        existing: {
+          name: 'existing.pdf'
+        }
+      };
+
+      configureSelectors({
+        fileList
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByTestId('drop-accepted')
+      );
+
+      expect(
+        mockAddAcceptedClaimDocuments
+      ).toHaveBeenCalledWith(
+        [{ name: 'accepted.pdf' }],
+        fileList
+      );
+
+    });
+
+    it('calls addRejectedClaimDocuments with file name when files are rejected', () => {
+      const fileList = {
+        existing: {
+          name: 'existing.pdf'
+        }
+      };
+
+      configureSelectors({
+        fileList
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByTestId('drop-rejected')
+      );
+
+      expect(
+        mockAddRejectedClaimDocuments
+      ).toHaveBeenCalledWith(
+        [
+          {
+            file: {
+              name: 'rejected.pdf'
+            },
+            errors: []
+          }
+        ],
+        fileList
+      );
+    });
+
+    it('shows Drop files here when a drag is active', () => {
+      render(<DocumentUploadComponent />);
+
+      fireEvent.dragEnter(
+        screen.getByTestId(
+          'mock-dropzone-root'
+        )
+      );
+
+      expect(
+        screen.getByText('Drop files here')
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          'Maximum size per file: 10MB'
+        )
+      ).toBeInTheDocument();
     });
   });
 
-  it('it should show error messaging when file name is zero bytes', async () => {
-    renderComponent(<DocumentUpload {...props} />);
-    const dropzone = screen.getByTestId('drop-input');
-    const file = [createFile('emptyfile.json', 0, 'application/json')];
-    const data = createDataTransferWithFiles(file);
+  describe('file list', () => {
+    it('does not render a file list when fileList is empty', () => {
+      configureSelectors({
+        fileList: {}
+      });
 
-    act(() => {
-      fireEvent.drop(dropzone, data);
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.queryByText('test.pdf')
+      ).not.toBeInTheDocument();
     });
 
-    await waitFor(() => {
-      expect(screen.getByText('emptyfile.json')).toBeInTheDocument();
-      expect(screen.getByText('documentUpload.errors.emptyFile')).toBeInTheDocument();
-      expect(screen.getByText('Remove')).toBeInTheDocument();
+    it('renders the file name', () => {
+      const file = createFile({
+        name: 'claim-document.pdf'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByText('claim-document.pdf')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the file status description', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'success'
+      );
+
+      defaultViewModel.getFileStatusDescription.mockReturnValue(
+        'documentUpload.uploadStatus.complete'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByText(
+          'documentUpload.uploadStatus.complete'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('uses the view model to determine file status', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'error'
+      );
+
+      defaultViewModel.getFileStatusDescription.mockReturnValue(
+        'documentUpload.errors.fileType'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        defaultViewModel.getMappedFileStatus
+      ).toHaveBeenCalledWith(file);
+
+      expect(
+        defaultViewModel.getFileStatusDescription
+      ).toHaveBeenCalledWith(file);
+    });
+
+    it('renders the progress component when the file is not complete', () => {
+      const file = createFile({
+        name: 'uploading.pdf'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'uploading'
+      );
+
+      defaultViewModel.getFileProgressValue.mockReturnValue(
+        50
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByTestId('styled-linear-progress')
+      ).toBeInTheDocument();
+    });
+
+    it('does not render the progress component when the file is complete', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'success'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.queryByTestId('styled-linear-progress')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('file status icons', () => {
+    it('renders the error icon for an error status', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'error'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByTestId('ErrorIcon')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the security icon for scanning status', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'scanning'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByTestId('SecurityIcon')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the check icon for successful status', () => {
+      const file = createFile();
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      defaultViewModel.getMappedFileStatus.mockReturnValue(
+        'success'
+      );
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByTestId('CheckIcon')
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('remove file', () => {
+    it('shows Remove for staged files', () => {
+      const file = createFile({
+        name: 'staged.pdf',
+        clientStatus: 'staged'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Remove'
+        })
+      ).toBeInTheDocument();
+    });
+
+    it('shows Remove for failed files', () => {
+      const file = createFile({
+        name: 'failed.pdf',
+        clientStatus: 'failed'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Remove'
+        })
+      ).toBeInTheDocument();
+    });
+
+    it('does not show Remove for uploaded files', () => {
+      const file = createFile({
+        name: 'uploaded.pdf',
+        clientStatus: 'uploaded'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.queryByRole('button', {
+          name: 'Remove'
+        })
+      ).not.toBeInTheDocument();
+    });
+
+    it('calls deleteClaimDocument with the file name when Remove is clicked', async () => {
+
+      const file = createFile({
+        name: 'staged.pdf',
+        clientStatus: 'staged'
+      });
+
+      configureSelectors({
+        fileList: createFileList(file)
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Remove'
+        })
+      );
+
+      expect(
+        mockDeleteClaimDocument
+      ).toHaveBeenCalledWith(
+        'staged.pdf'
+      );
+
+    });
+  });
+
+  describe('staged files', () => {
+    it('shows the upload check message when there are staged files', () => {
+      configureSelectors({
+        hasStagedFiles: true
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByText(
+          'claim:documentUpload.check.title'
+        )
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          'claim:documentUpload.check.description'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('does not show the upload check message when there are no staged files', () => {
+      configureSelectors({
+        hasStagedFiles: false
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.queryByText(
+          'claim:documentUpload.check.title'
+        )
+      ).not.toBeInTheDocument();
+    });
+
+    it('enables Upload files when staged files exist', () => {
+      configureSelectors({
+        hasStagedFiles: true
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Upload files'
+        })
+      ).toBeEnabled();
+    });
+
+    it('disables Upload files when there are no staged files', () => {
+      configureSelectors({
+        hasStagedFiles: false
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Upload files'
+        })
+      ).toBeDisabled();
+    });
+  });
+
+  describe('upload staged files', () => {
+    it('calls sendRequest for every staged file', async () => {
+
+      const firstFile = createFile({
+        name: 'first.pdf'
+      });
+
+      const secondFile = createFile({
+        name: 'second.pdf'
+      });
+
+      const sendRequest = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          firstFile,
+          secondFile
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Upload files'
+        })
+      );
+
+      await waitFor(() => {
+        expect(sendRequest).toHaveBeenCalledTimes(
+          2
+        );
+      });
+
+      expect(sendRequest).toHaveBeenNthCalledWith(
+        1,
+        firstFile
+      );
+
+      expect(sendRequest).toHaveBeenNthCalledWith(
+        2,
+        secondFile
+      );
+    });
+
+    it('uploads staged files in parallel using Promise.all', async () => {
+
+      const firstFile = createFile({
+        name: 'first.pdf'
+      });
+
+      const secondFile = createFile({
+        name: 'second.pdf'
+      });
+
+      const firstPromise =
+        Promise.resolve();
+
+      const secondPromise =
+        Promise.resolve();
+
+      const sendRequest = jest
+        .fn()
+        .mockReturnValueOnce(firstPromise)
+        .mockReturnValueOnce(secondPromise);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          firstFile,
+          secondFile
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Upload files'
+        })
+      );
+
+      await waitFor(() => {
+        expect(sendRequest).toHaveBeenCalledTimes(
+          2
+        );
+      });
+    });
+
+    it('disables the upload button while uploading', async () => {
+
+      let resolveUpload:
+        | (() => void)
+        | undefined;
+
+      const uploadPromise = new Promise<void>(
+        (resolve) => {
+          resolveUpload = resolve;
+        }
+      );
+
+      const sendRequest = jest
+        .fn()
+        .mockReturnValue(uploadPromise);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          createFile()
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      const uploadButton =
+        screen.getByRole('button', {
+          name: 'Upload files'
+        });
+
+      expect(uploadButton).toBeEnabled();
+
+      fireEvent.click(uploadButton);
+
+      expect(uploadButton).toBeDisabled();
+
+      resolveUpload?.();
+
+      await waitFor(() => {
+        expect(uploadButton).toBeEnabled();
+      });
+    });
+
+    it('re-enables the upload button when upload succeeds', async () => {
+
+      const sendRequest = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          createFile()
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      const uploadButton =
+        screen.getByRole('button', {
+          name: 'Upload files'
+        });
+
+      fireEvent.click(uploadButton);
+
+      await waitFor(() => {
+        expect(uploadButton).toBeEnabled();
+      });
+    });
+
+    it('re-enables the upload button when upload fails', async () => {
+
+      const error = new Error(
+        'Upload failed'
+      );
+
+      const sendRequest = jest
+        .fn()
+        .mockRejectedValue(error);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          createFile()
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      const uploadButton =
+        screen.getByRole('button', {
+          name: 'Upload files'
+        });
+
+      fireEvent.click(uploadButton);
+
+      await waitFor(() => {
+        expect(uploadButton).toBeEnabled();
+      });
+
+      expect(
+        mockLogApiError
+      ).toHaveBeenCalledWith(
+        error,
+        'ui-api-upload-staged-files',
+        expect.anything()
+      );
+    });
+
+    it('gets default request options when uploading', async () => {
+
+      const requestOptions = {
+        headers: {
+          Authorization: 'Bearer TOKEN'
+        }
+      };
+
+      mockGetDefaultRequestOptions.mockReturnValue(
+        requestOptions
+      );
+
+      const sendRequest = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        sendRequest
+      });
+
+      configureSelectors({
+        hasStagedFiles: true,
+        stagedFiles: [
+          createFile()
+        ]
+      });
+
+      render(<DocumentUploadComponent />);
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'Upload files'
+        })
+      );
+
+      await waitFor(() => {
+        expect(
+          mockGetDefaultRequestOptions
+        ).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('view model configuration', () => {
+    it('passes claim number to useDocumentUploadViewModel', () => {
+      configureSelectors({
+        claim: 'CLM456'
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        mockUseDocumentUploadViewModel
+      ).toHaveBeenCalledWith({
+        claimNumber: 'CLM456'
+      });
+    });
+
+    it('uses the configured maximum file size', () => {
+      mockUseDocumentUploadViewModel.mockReturnValue({
+        ...defaultViewModel,
+        maxFileSize: 5 * 1024 * 1024
+      });
+
+      render(<DocumentUploadComponent />);
+
+      expect(
+        screen.getByTestId('mock-dropzone')
+      ).toBeInTheDocument();
     });
   });
 });
