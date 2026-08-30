@@ -1,6 +1,6 @@
 import * as React from 'react';
-import * as styles from './styles';
-import { Button, Card, Typography } from '@tower/tui';
+import * as styles from './DocumentUpload.styles';
+import { Button, Card, Toast, Typography, useToast } from '@tower/tui';
 import { getDefaultRequestOptions } from '~/common/state/services';
 import { logApiError } from '~/common/utilities';
 import type { StagedFile } from '~/feature/claim/shared/state';
@@ -47,7 +47,8 @@ export const DocumentUploadComponent: React.FC<DocumentUploadProps> = () => {
   } = useDocumentUploadViewModel({ claimNumber });
 
   const [uploading, setUploading] = React.useState(false);
-
+  const enableDocumentUploadToast = t('claim:config.enableDocumentUploadToast') === true;
+  const { id, showToast } = useToast();
   const uploadStagedFiles = async () => {
     setUploading(true);
     const requestOptions = getDefaultRequestOptions();
@@ -58,6 +59,7 @@ export const DocumentUploadComponent: React.FC<DocumentUploadProps> = () => {
     try {
       await Promise.all(uploadPromises);
       setUploading(false);
+      if (enableDocumentUploadToast) showToast();
     } catch (e) {
       logApiError(e, 'ui-api-upload-staged-files', requestOptions);
       setUploading(false);
@@ -66,6 +68,14 @@ export const DocumentUploadComponent: React.FC<DocumentUploadProps> = () => {
 
   return (
     <>
+      {enableDocumentUploadToast && (
+        <>
+          <styles.StyledToast toastId={id}>
+            <styles.StyledToastDescription>Thanks for your documents</styles.StyledToastDescription>
+          </styles.StyledToast>
+          <styles.StyledToastViewport />
+        </>
+      )}
       <Dropzone
         onDropAccepted={(acceptedFiles) => {
           dispatch(thunks.addAcceptedClaimDocuments(acceptedFiles, fileList));
@@ -120,11 +130,11 @@ export const DocumentUploadComponent: React.FC<DocumentUploadProps> = () => {
               const isComplete = fileStatus === 'success';
               let statusIcon = null;
               if (fileStatus === 'error') {
-                statusIcon = <ErrorIcon color="neutral900Default" />;
+                statusIcon = <ErrorIcon />;
               } else if (fileStatus === 'scanning') {
-                statusIcon = <SecurityIcon color="neutral900Default" />;
+                statusIcon = <SecurityIcon />;
               } else if (fileStatus === 'success') {
-                statusIcon = <CheckIcon color="neutral900Default" />;
+                statusIcon = <CheckIcon />;
               }
               return (
                 <styles.StyledFileItemCardContainer key={fileName}>
@@ -192,5 +202,9 @@ export const DocumentUploadComponent: React.FC<DocumentUploadProps> = () => {
     </>
   );
 };
-
-export const DocumentUpload = DocumentUploadLoader;
+const ToastHookWrapper = (props: DocumentUploadProps) => (
+  <Toast.Provider duration={4000}>
+    <DocumentUploadLoader {...props} />
+  </Toast.Provider>
+);
+export const DocumentUpload = ToastHookWrapper;
