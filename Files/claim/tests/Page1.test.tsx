@@ -1,10 +1,7 @@
 import * as React from 'react';
 import { render, screen } from '@testing-library/react';
-
-import { Page1Component } from './Page1';
-import { Page1Loader } from './Page1';
+import { Page1Component, Page1Loader } from './Page1';
 import type { Page1Props } from './Page1';
-
 import { routes } from '~/common/state';
 import { raiseClaimGAEvent } from '~/feature/claim/utils';
 import type { ClaimType } from '../../shared/state';
@@ -13,44 +10,23 @@ const mockNavigate = jest.fn();
 const mockT = jest.fn((key: string) => key);
 const mockFormFooter = jest.fn();
 
-jest.mock('react-router', () => ({
-  useNavigate: () => mockNavigate
-}));
-
-jest.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: mockT
-  })
-}));
+jest.mock('react-router', () => ({ useNavigate: () => mockNavigate }));
+jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }));
 
 jest.mock('react-redux-form', () => ({
-  Form: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="form">{children}</div>
-  )
+  Form: ({ children }: { children: React.ReactNode }) => <div data-testid="form">{children}</div>
 }));
 
-jest.mock('~/feature/claim/utils', () => ({
-  raiseClaimGAEvent: jest.fn()
-}));
+jest.mock('~/feature/claim/utils', () => ({ raiseClaimGAEvent: jest.fn() }));
 
 jest.mock('~/common/state', () => ({
-  routes: {
-    CLAIM: {
-      CAR: {
-        PAGE2: '/claim/car/page2'
-      }
-    }
-  }
+  routes: { CLAIM: { CAR: { PAGE2: '/claim/car/page2' } } }
 }));
 
 jest.mock('~/feature/claim/car/state', () => ({
   formPath: 'forms.carClaim.page1',
   modelPath: 'carClaim',
-
-  thunks: {
-    initCarPage1: jest.fn()
-  },
-
+  thunks: { initCarPage1: jest.fn() },
   selectors: {
     getClaim: jest.fn(),
     getBaseState: jest.fn(),
@@ -81,41 +57,33 @@ jest.mock('~/feature/claim/shared/state', () => ({
 }));
 
 jest.mock('~/feature/claim/car/components', () => ({
-  AuthorityReportFire: () => (<div data-testid="authority-report-fire" />),
-  AuthorityReportPolice: () => (<div data-testid="authority-report-police" />),
-  OtherDrivers: () => (<div data-testid="other-drivers" />)
+  AuthorityReportFire: () => <div data-testid="authority-report-fire" />,
+  AuthorityReportPolice: () => <div data-testid="authority-report-police" />,
+  OtherDrivers: () => <div data-testid="other-drivers" />
 }));
 
 jest.mock('~/feature/claim/car/components/dumb', () => ({
-  DriverDetails: () => (<div data-testid="driver-details" />),
-  OtherPeopleDetail: () => (<div data-testid="other-people-detail" />),
-  PoliceAttend: () => (<div data-testid="police-attend" />),
-  TheftSection1: () => (<div data-testid="theft-section-1" />),
-  TheftSection2: () => (<div data-testid="theft-section-2" />)
+  DriverDetails: () => <div data-testid="driver-details" />,
+  OtherPeopleDetail: () => <div data-testid="other-people-detail" />,
+  PoliceAttend: () => <div data-testid="police-attend" />,
+  TheftSection1: () => <div data-testid="theft-section-1" />,
+  TheftSection2: () => <div data-testid="theft-section-2" />
 }));
 
 jest.mock('~/feature/claim/shared/components', () => ({
-  EventDescription: () => (<div data-testid="event-description" />),
-  EventLocation: () => (<div data-testid="event-location" />),
-  FloatingToolbar: () => (<div data-testid="floating-toolbar" />),
+  EventDescription: () => <div data-testid="event-description" />,
+  EventLocation: () => <div data-testid="event-location" />,
+  FloatingToolbar: () => <div data-testid="floating-toolbar" />,
   FormFooter: (props = {}) => {
     mockFormFooter(props);
-
-    return (
-      <div data-testid="form-footer" />
-    );
+    return <div data-testid="form-footer" />;
   },
-
-  PreStepsSummary: () => (<div data-testid="pre-steps-summary" />),
-  WitnessSection: () => (<div data-testid="witness-section" />)
+  PreStepsSummary: () => <div data-testid="pre-steps-summary" />,
+  WitnessSection: () => <div data-testid="witness-section" />
 }));
 
 jest.mock('~/feature/claim/shared/components/dumb', () => ({
-  ClaimNumber: ({ claimNumber }: { claimNumber: string;}) => (
-    <div data-testid="claim-number">
-      {claimNumber}
-    </div>
-  )
+  ClaimNumber: ({ claimNumber }: { claimNumber: string }) => <div data-testid="claim-number">{claimNumber}</div>
 }));
 
 describe('Page1Component', () => {
@@ -130,7 +98,7 @@ describe('Page1Component', () => {
     claim,
     claimType: 'car' as ClaimType,
     description: 'Test description',
-    state: {eventLocationAddress: undefined} as Page1Props['state'],
+    state: { eventLocationAddress: undefined } as Page1Props['state'],
     showTheftQuestions: false,
     showYourDriver: false,
     showOtherPersonDetails: false,
@@ -140,13 +108,13 @@ describe('Page1Component', () => {
     showOtherDrivers: false,
     isOtherDriverInvolved: false,
     showWitness: false,
-    getEventLocationHeaderLabel:'accidentInformation',
-    getEventLocationLabel:'accidentWhileDriving.search',
+    getEventLocationHeaderLabel: 'accidentInformation',
+    getEventLocationLabel: 'accidentWhileDriving.search',
     ...overrides
   });
 
   const renderPage = (overrides: Partial<Page1Props> = {}) => {
-    render(<Page1Component{...createProps(overrides)}/>);
+    render(<Page1Component {...createProps(overrides)} />);
   };
 
   const expectRendered = (testId: string) => {
@@ -157,27 +125,18 @@ describe('Page1Component', () => {
     expect(screen.queryByTestId(testId)).not.toBeInTheDocument();
   };
 
-  const expectHeadingRendered = (
-    text: string
-  ) => {
-    expect(screen.getByRole('heading', { level: 2, name: text})).toBeInTheDocument();
+  const expectHeadingRendered = (text: string) => {
+    expect(screen.getByRole('heading', { level: 2, name: text })).toBeInTheDocument();
   };
 
-  const expectHeadingNotRendered = (
-    text: string
-  ) => {
-    expect(
-      screen.queryByRole('heading', { level: 2, name: text})).not.toBeInTheDocument();
+  const expectHeadingNotRendered = (text: string) => {
+    expect(screen.queryByRole('heading', { level: 2, name: text })).not.toBeInTheDocument();
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-
-    Object.defineProperty(window, 'scrollTo', {
-      writable: true,
-      value: jest.fn()
-    });
+    Object.defineProperty(window, 'scrollTo', { writable: true, value: jest.fn() });
   });
 
   afterEach(() => {
@@ -232,14 +191,14 @@ describe('Page1Component', () => {
     });
 
     it('renders theft sections when enabled', () => {
-      renderPage({showTheftQuestions: true});
+      renderPage({ showTheftQuestions: true });
 
       expectRendered('theft-section-1');
       expectRendered('theft-section-2');
     });
 
     it('renders your driver section when enabled', () => {
-      renderPage({showYourDriver: true});
+      renderPage({ showYourDriver: true });
 
       expectHeadingRendered('claim/car:headings.yourDriver');
       expectRendered('driver-details');
@@ -253,10 +212,7 @@ describe('Page1Component', () => {
     });
 
     it('renders other driver details heading when another driver is involved', () => {
-      renderPage({
-        showOtherDrivers: true,
-        isOtherDriverInvolved: true
-      });
+      renderPage({ showOtherDrivers: true, isOtherDriverInvolved: true });
 
       expectHeadingRendered('claim/car:headings.otherDriverDetails');
       expectHeadingNotRendered('claim/car:headings.driverDetails');
@@ -264,21 +220,21 @@ describe('Page1Component', () => {
     });
 
     it('renders other people details when enabled', () => {
-      renderPage({showOtherPersonDetails: true});
+      renderPage({ showOtherPersonDetails: true });
 
       expectHeadingRendered('claim/car:headings.otherPeopleDetails');
       expectRendered('other-people-detail');
     });
 
     it('renders fire authority report when enabled', () => {
-      renderPage({showFireAuthorityReport: true});
+      renderPage({ showFireAuthorityReport: true });
 
       expectHeadingRendered('claim/car:headings.fire');
       expectRendered('authority-report-fire');
     });
 
     it('renders police attend when enabled', () => {
-      renderPage({showPoliceAttend: true});
+      renderPage({ showPoliceAttend: true });
 
       expectHeadingRendered('claim/car:headings.police');
       expectRendered('police-attend');
@@ -286,7 +242,7 @@ describe('Page1Component', () => {
     });
 
     it('renders authority police report when enabled', () => {
-      renderPage({showAuthorityReport: true});
+      renderPage({ showAuthorityReport: true });
 
       expectHeadingRendered('claim/car:headings.police');
       expectRendered('authority-report-police');
@@ -294,10 +250,7 @@ describe('Page1Component', () => {
     });
 
     it('renders both police sections when both are enabled', () => {
-      renderPage({
-        showPoliceAttend: true,
-        showAuthorityReport: true
-      });
+      renderPage({ showPoliceAttend: true, showAuthorityReport: true });
 
       expectHeadingRendered('claim/car:headings.police');
       expectRendered('police-attend');
@@ -305,9 +258,9 @@ describe('Page1Component', () => {
     });
 
     it('renders witnesses when enabled', () => {
-      renderPage({showWitness: true});
+      renderPage({ showWitness: true });
 
-      expectHeadingRendered('claim/car:headings.witnesses' );
+      expectHeadingRendered('claim/car:headings.witnesses');
       expectRendered('witness-section');
     });
   });
@@ -327,8 +280,7 @@ describe('Page1Component', () => {
         expect.objectContaining({
           disabled: false,
           validating: false,
-          submitButtonLabel:
-            'claim:footer.nextButton.car.page1',
+          submitButtonLabel: 'claim:footer.nextButton.car.page1',
           handleSubmit: expect.any(Function)
         })
       );
@@ -339,7 +291,7 @@ describe('Page1Component', () => {
     it('raises the GA event when FormFooter submit handler is invoked', async () => {
       renderPage();
 
-      const formFooterProps = mockFormFooter.mock.calls[0][0] as { handleSubmit: () => Promise<void>;};
+      const formFooterProps = mockFormFooter.mock.calls[0][0] as { handleSubmit: () => Promise<void> };
       await formFooterProps.handleSubmit();
 
       expect(raiseClaimGAEvent).toHaveBeenCalledTimes(1);
@@ -349,7 +301,7 @@ describe('Page1Component', () => {
     it('navigates to car page 2 after submit', async () => {
       renderPage();
 
-      const formFooterProps = mockFormFooter.mock.calls[0][0] as { handleSubmit: () => Promise<void>;};
+      const formFooterProps = mockFormFooter.mock.calls[0][0] as { handleSubmit: () => Promise<void> };
       await formFooterProps.handleSubmit();
       jest.runAllTimers();
 
@@ -361,17 +313,14 @@ describe('Page1Component', () => {
   describe('event location', () => {
     it('passes the event location configuration to EventLocation', () => {
       renderPage({
-        getEventLocationHeaderLabel:
-          'accidentInformation',
-        getEventLocationLabel:
-          'accidentWhileDriving.search'
+        getEventLocationHeaderLabel: 'accidentInformation',
+        getEventLocationLabel: 'accidentWhileDriving.search'
       });
 
       expectRendered('event-location');
     });
   });
 });
-
 
 const mockInitialisePage1 = jest.fn();
 
@@ -385,13 +334,11 @@ describe('Page1Loader', () => {
 
   const vehicleMakes = ['Toyota', 'Mazda'];
 
-  const createProps = (
-    overrides: Partial<Page1Props> = {}
-  ): Page1Props => ({
+  const createProps = (overrides: Partial<Page1Props> = {}): Page1Props => ({
     claim,
     claimType: 'car' as ClaimType,
     description: 'Test description',
-    state: {  eventLocationAddress: undefined } as Page1Props['state'],
+    state: { eventLocationAddress: undefined } as Page1Props['state'],
     showTheftQuestions: false,
     showYourDriver: false,
     showOtherPersonDetails: false,
@@ -414,11 +361,7 @@ describe('Page1Loader', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-
-    Object.defineProperty(window, 'scrollTo', {
-      writable: true,
-      value: jest.fn()
-    });
+    Object.defineProperty(window, 'scrollTo', { writable: true, value: jest.fn() });
   });
 
   afterEach(() => {
@@ -429,8 +372,8 @@ describe('Page1Loader', () => {
     it('initialises page 1 on mount', () => {
       render(<Page1Loader {...createProps()} />);
 
-      expect( mockInitialisePage1).toHaveBeenCalledTimes(1);
-      expect( mockInitialisePage1).toHaveBeenCalledWith( claim.lossDate, '2026-08-02', vehicleMakes, claim, false);
+      expect(mockInitialisePage1).toHaveBeenCalledTimes(1);
+      expect(mockInitialisePage1).toHaveBeenCalledWith(claim.lossDate, '2026-08-02', vehicleMakes, claim, false);
     });
 
     it('initialises page 1 with the current props', () => {
@@ -457,7 +400,7 @@ describe('Page1Loader', () => {
 
   describe('scroll behaviour', () => {
     it('scrolls to the top after mount', () => {
-      render(<Page1Loader {...createProps()}/>);
+      render(<Page1Loader {...createProps()} />);
 
       expect(scrollTo).not.toHaveBeenCalled();
       jest.runAllTimers();
