@@ -181,11 +181,14 @@ describe('PreStep1', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     selectorValues.clear();
+
     (useAppDispatch as jest.Mock).mockReturnValue(dispatch);
+
     (useAppSelector as jest.Mock).mockImplementation((selector: jest.Mock) => {
       if (selector === getFlags) return {};
       return selectorValues.get(selector);
     });
+
     selectorValues.set(selectors.getClaimSharedState, claimSharedState);
     selectorValues.set(selectors.getCustomerPolicies, []);
     selectorValues.set(selectors.getNonDigitalPolicies, []);
@@ -233,6 +236,7 @@ describe('PreStep1', () => {
     selectorValues.set(selectors.getPotentialDuplicateClaimDialogDismissed, false);
     selectorValues.set(selectors.isWaterDamageClaim, false);
     selectorValues.set(selectors.isPolicyIneligibleForSSPClaimSelected, false);
+
     (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(true);
     (thunks.initialisePreStep1 as jest.Mock).mockReturnValue({ type: 'initialise-pre-step-1' });
     (thunks.handleStartWindscreenClaim as jest.Mock).mockReturnValue({ type: 'start-windscreen-claim' });
@@ -244,13 +248,19 @@ describe('PreStep1', () => {
   });
 
   describe('PreStep1Loader', () => {
-    beforeEach(() => { window.scrollTo = jest.fn(); });
+    beforeEach(() => {
+      window.scrollTo = jest.fn();
+    });
+
     it('should render PreStep1Component', () => {
       render(<PreStep1 />);
+
       expect(screen.getByTestId('customer-policies')).toBeInTheDocument();
     });
+
     it('should initialise the page on mount', () => {
       render(<PreStep1 />);
+
       expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
       expect(thunks.initialisePreStep1).toHaveBeenCalledTimes(1);
       expect(thunks.initialisePreStep1).toHaveBeenCalledWith({}, 'claim:config.enabledMotorMLOB', 'POLICY-123');
@@ -261,18 +271,26 @@ describe('PreStep1', () => {
   describe('loading state', () => {
     it('should show spinner while policies are loading', () => {
       selectorValues.set(selectors.getClaimSharedState, { ...claimSharedState, loadingPolicies: true });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('spinner')).toBeInTheDocument();
       expect(screen.queryByTestId('customer-policies')).not.toBeInTheDocument();
     });
+
     it('should show spinner while cat codes are loading', () => {
       selectorValues.set(selectors.getClaimSharedState, { ...claimSharedState, loadingCatCodes: true });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('spinner')).toBeInTheDocument();
     });
+
     it('should show spinner while claims are loading', () => {
       selectorValues.set(selectors.getClaimSharedState, { ...claimSharedState, loadingClaims: true });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('spinner')).toBeInTheDocument();
     });
   });
@@ -280,26 +298,38 @@ describe('PreStep1', () => {
   describe('basic rendering', () => {
     it('should render the main page components', () => {
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('customer-policies')).toBeInTheDocument();
       expect(screen.getByTestId('floating-toolbar')).toBeInTheDocument();
     });
+
     it('should render the continue button when allowed', () => {
       render(<PreStep1Component />);
+
       expect(screen.getByRole('button', { name: /claim:button.continuePreClaim/i })).toBeInTheDocument();
     });
+
     it('should disable the continue button when configured', () => {
       selectorValues.set(selectors.disableContinuePreClaim, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByRole('button', { name: /claim:button.continuePreClaim/i })).toBeDisabled();
     });
+
     it('should use policyDetailsLoading as the LoaderButton pending state', () => {
       (usePreStep1ViewModel as jest.Mock).mockReturnValue({ ...defaultViewModel, policyDetailsLoading: true });
+
       render(<PreStep1Component />);
+
       expect(screen.getByRole('button', { name: /claim:button.continuePreClaim/i })).toBeInTheDocument();
     });
+
     it('should call handleContinue when continue is clicked', () => {
       render(<PreStep1Component />);
+
       fireEvent.click(screen.getByRole('button', { name: /claim:button.continuePreClaim/i }));
+
       expect(defaultViewModel.handleContinue).toHaveBeenCalledTimes(1);
     });
   });
@@ -310,18 +340,26 @@ describe('PreStep1', () => {
       selectorValues.set(selectors.isEISPolicySelected, true);
       selectorValues.set(selectors.isPolicyNotShownSelected, false);
       selectorValues.set(selectors.isPolicyIneligibleForSSPClaimSelected, false);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('catastrophe-event')).toBeInTheDocument();
     });
+
     it('should not show catastrophe event when no active cat codes exist', () => {
       selectorValues.set(selectors.getActiveCatCodes, undefined);
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('catastrophe-event')).not.toBeInTheDocument();
     });
+
     it('should render event date and time when catastrophe conditions allow it', () => {
       selectorValues.set(selectors.getActiveCatCodes, undefined);
       selectorValues.set(selectors.isEISPolicySelected, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('event-date')).toBeInTheDocument();
       expect(screen.getByTestId('event-time')).toBeInTheDocument();
     });
@@ -332,112 +370,172 @@ describe('PreStep1', () => {
       selectorValues.set(selectors.getPotentialDuplicateClaim, true);
       selectorValues.set(selectors.policyDetailsLoaded, true);
       selectorValues.set(selectors.getPotentialDuplicateClaimDialogDismissed, false);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('potential-duplicate-claim')).toBeInTheDocument();
     });
+
     it('should not render potential duplicate claim when dialog was dismissed', () => {
       selectorValues.set(selectors.getPotentialDuplicateClaim, true);
       selectorValues.set(selectors.policyDetailsLoaded, true);
       selectorValues.set(selectors.getPotentialDuplicateClaimDialogDismissed, true);
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('potential-duplicate-claim')).not.toBeInTheDocument();
     });
+
     it('should render cause of loss after policy details are loaded', () => {
       selectorValues.set(selectors.policyDetailsLoaded, true);
       selectorValues.set(selectors.hideCauseOfLossInCatEvent, false);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('cause-of-loss')).toBeInTheDocument();
     });
+
     it('should hide cause of loss when configured to hide it', () => {
       selectorValues.set(selectors.policyDetailsLoaded, true);
       selectorValues.set(selectors.hideCauseOfLossInCatEvent, true);
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('cause-of-loss')).not.toBeInTheDocument();
     });
   });
 
   describe('motor claim', () => {
-    beforeEach(() => { (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(true); });
+    beforeEach(() => {
+      (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(true);
+    });
+
     it('should render motor damage', () => {
       selectorValues.set(selectors.showDamage, true);
       selectorValues.set(selectors.getSelectedCatEvent, undefined);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('motor-damage')).toBeInTheDocument();
     });
+
     it('should not render motor damage when a cat event is selected', () => {
       selectorValues.set(selectors.showDamage, true);
       selectorValues.set(selectors.getSelectedCatEvent, { type: 'CAT' });
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('motor-damage')).not.toBeInTheDocument();
     });
+
     it('should render multi vehicle accident', () => {
       selectorValues.set(selectors.showMultiVehicleAccident, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('multi-vehicle-accident')).toBeInTheDocument();
     });
+
     it('should render damaged while parked cause', () => {
       selectorValues.set(selectors.showDamagedWhileParkedCause, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('damaged-while-parked')).toBeInTheDocument();
     });
+
     it('should render natural disaster cause', () => {
       selectorValues.set(selectors.showNaturalDisasterCause, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('motor-natural-disaster')).toBeInTheDocument();
     });
+
     it('should render car recovered', () => {
       selectorValues.set(selectors.showCarRecovered, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('car-recovered')).toBeInTheDocument();
     });
+
     it('should render glass only damage', () => {
       selectorValues.set(selectors.showCarGlassOnlyDamage, true);
       selectorValues.set(selectors.getSelectedCatEvent, { type: 'GLASS' });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('car-glass-only')).toBeInTheDocument();
     });
+
     it('should render car not covered message when cat event is selected', () => {
       selectorValues.set(selectors.getSelectedCatEvent, { type: 'CAT' });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('car-not-covered')).toBeInTheDocument();
     });
   });
 
   describe('boat claim', () => {
-    beforeEach(() => { (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(true); });
+    beforeEach(() => {
+      (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(true);
+    });
+
     it('should render boat damage', () => {
       selectorValues.set(selectors.showBoatDamage, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-damage')).toBeInTheDocument();
     });
+
     it('should render boat impact', () => {
       selectorValues.set(selectors.showBoatImpact, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-impact')).toBeInTheDocument();
     });
+
     it('should render boat theft', () => {
       selectorValues.set(selectors.showBoatTheft, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-theft')).toBeInTheDocument();
     });
+
     it('should render boat theft entry', () => {
       selectorValues.set(selectors.showBoatTheftEntry, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-theft-entry')).toBeInTheDocument();
     });
+
     it('should render boat submersion', () => {
       selectorValues.set(selectors.showBoatSubmersion, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-submersion')).toBeInTheDocument();
     });
+
     it('should render boat natural disaster', () => {
       selectorValues.set(selectors.showBoatNaturalDisaster, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-natural-disaster')).toBeInTheDocument();
     });
+
     it('should render boat fire', () => {
       selectorValues.set(selectors.showBoatFire, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('boat-fire')).toBeInTheDocument();
     });
   });
@@ -447,29 +545,44 @@ describe('PreStep1', () => {
       selectorValues.set(selectors.getClaimSharedState, { ...claimSharedState, claimType: ClaimType.Contents });
       (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(false);
     });
+
     it('should render contents damage', () => {
       selectorValues.set(selectors.showContentsDamage, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('contents-damage')).toBeInTheDocument();
     });
+
     it('should render contents fire cause', () => {
       selectorValues.set(selectors.showContentsFireCause, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('contents-fire-cause')).toBeInTheDocument();
     });
+
     it('should render contents natural disaster cause', () => {
       selectorValues.set(selectors.showContentsNaturalDisasterCause, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('contents-natural-disaster')).toBeInTheDocument();
     });
+
     it('should render contents stolen from', () => {
       selectorValues.set(selectors.showContentsStolenFrom, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('contents-stolen-from')).toBeInTheDocument();
     });
+
     it('should render where items were last remembered', () => {
       selectorValues.set(selectors.showContentsWhereLastRememberHavingItems, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('contents-where-last-remembered')).toBeInTheDocument();
     });
   });
@@ -481,7 +594,9 @@ describe('PreStep1', () => {
       selectorValues.set(selectors.showHouseFireCause, true);
       selectorValues.set(selectors.showHouseNaturalDisasterCause, true);
       (selectors.isClaimTypeMotor as jest.Mock).mockReturnValue(false);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('house-damage')).toBeInTheDocument();
       expect(screen.getByTestId('house-fire-cause')).toBeInTheDocument();
       expect(screen.getByTestId('house-natural-disaster')).toBeInTheDocument();
@@ -491,51 +606,78 @@ describe('PreStep1', () => {
   describe('messages', () => {
     it('should show already replaced keys message', () => {
       selectorValues.set(selectors.isHouseKeysClaim, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('already-replaced-keys-message')).toBeInTheDocument();
     });
+
     it('should show motor keys message', () => {
       selectorValues.set(selectors.isMotorKeysClaim, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('already-replaced-keys-message')).toBeInTheDocument();
     });
+
     it('should show cannot claim for policy online message', () => {
       selectorValues.set(selectors.isCannotClaimForPolicyOnline, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('incorrect-claim-details-message-cannot-claim-for-policy')).toBeInTheDocument();
     });
+
     it('should show cannot process claim online message', () => {
       selectorValues.set(selectors.isCannotClaimOnline, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('incorrect-claim-details-message-cannot-claim-online')).toBeInTheDocument();
     });
+
     it('should show damaged and break-in message', () => {
       selectorValues.set(selectors.isDamagedAndBreakInHouseOrLandlord, true);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('any-contents-stolen')).toBeInTheDocument();
     });
   });
 
   describe('water damage information', () => {
-    beforeEach(() => { selectorValues.set(selectors.isWaterDamageClaim, true); });
+    beforeEach(() => {
+      selectorValues.set(selectors.isWaterDamageClaim, true);
+    });
+
     it('should render water damage information box', () => {
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('information-box')).toBeInTheDocument();
     });
+
     it('should render water damage link when enabled', () => {
       render(<PreStep1Component />);
+
       expect(screen.getByText('learn more about this benefit here')).toBeInTheDocument();
     });
+
     it('should raise field GA event when water information link is clicked', () => {
       render(<PreStep1Component />);
+
       fireEvent.click(screen.getByText('learn more about this benefit here'));
+
       expect(raiseFieldGAEvent).toHaveBeenCalledWith('last_field_interacted', 'link', 'waterDamageInfoLink');
     });
+
     it('should call setWaterDamageInfoAcknowledged when checkbox changes', () => {
       const setWaterDamageInfoAcknowledged = jest.fn();
       (usePreStep1ViewModel as jest.Mock).mockReturnValue({ ...defaultViewModel, setWaterDamageInfoAcknowledged });
+
       render(<PreStep1Component />);
+
       fireEvent.click(screen.getByTestId('water-damage-checkbox'));
+
       expect(setWaterDamageInfoAcknowledged).toHaveBeenCalledTimes(1);
       expect(setWaterDamageInfoAcknowledged).toHaveBeenCalledWith(expect.any(Function));
     });
@@ -545,36 +687,54 @@ describe('PreStep1', () => {
     it('should render footer when page is valid', () => {
       selectorValues.set(selectors.isClaimPreStep1PageValid, true);
       selectorValues.set(selectors.isCannotClaimOnline, false);
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('form-footer')).toBeInTheDocument();
     });
+
     it('should not render footer when page is invalid', () => {
       selectorValues.set(selectors.isClaimPreStep1PageValid, false);
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('form-footer')).not.toBeInTheDocument();
     });
+
     it('should not render footer when claim cannot be processed online', () => {
       selectorValues.set(selectors.isCannotClaimOnline, true);
+
       render(<PreStep1Component />);
+
       expect(screen.queryByTestId('form-footer')).not.toBeInTheDocument();
     });
+
     it('should disable footer when nextLoading is true', () => {
       (usePreStep1ViewModel as jest.Mock).mockReturnValue({ ...defaultViewModel, nextLoading: true });
+
       render(<PreStep1Component />);
+
       expect(screen.getByTestId('form-footer')).toBeDisabled();
     });
+
     it('should start product claim when footer is submitted', () => {
       render(<PreStep1Component />);
+
       fireEvent.click(screen.getByTestId('form-footer'));
+
       expect(defaultViewModel.setNextLoading).toHaveBeenCalledWith(true);
       expect(raiseClaimGAEvent).toHaveBeenCalledWith(claimSharedState.claimNumber, claimSharedState.claimType);
       expect(thunks.handleStartProductClaim).toHaveBeenCalledWith(routes.CLAIM.SHARED.PRE_STEP_2);
       expect(dispatch).toHaveBeenCalledWith({ type: 'start-product-claim' });
     });
+
     it('should start windscreen claim when it is a windscreen claim', () => {
       selectorValues.set(selectors.isWindscreenClaim, true);
+
       render(<PreStep1Component />);
+
       fireEvent.click(screen.getByTestId('form-footer'));
+
       expect(thunks.handleStartWindscreenClaim).toHaveBeenCalledWith(expect.any(String), routes.CLAIM.WINDSCREEN.PAGE1);
       expect(dispatch).toHaveBeenCalledWith({ type: 'start-windscreen-claim' });
     });
