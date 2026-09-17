@@ -1,9 +1,0 @@
- SyntaxError: Unexpected token 'export'
-
-      21 |     Register = 'cim.auth0.register',
-      22 |     Reset = 'cim.auth0.reset',
-    > 23 |     Logout = 'cim.auth0.logout'
-         |               ^
-      24 | }
-      25 |
-      26 | enum AuthLogMessages {
