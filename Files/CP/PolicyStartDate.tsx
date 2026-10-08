@@ -1,18 +1,18 @@
 import styled from '@emotion/styled';
 import * as React from 'react';
-import { connect } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { actions as formActions } from 'react-redux-form';
 import { DatePicker } from '~/common/components/base';
 import { Question } from '~/common/components/dumb';
 import { commonActions } from '~/common/state';
-import { moment } from '~/common/twr-moment/twr-moment';
 import { raiseFieldGAEvent } from '~/common/utilities';
 import type { InjectedTranslateProps } from '~/common/utilities/translation';
 import { translate } from '~/common/utilities/translation';
-import type { QuoteSharedState } from '~/feature/quote/shared/state';
 import { modelPath, selectors } from '~/feature/quote/shared/state';
-import type { ApplicationState, Dispatch } from '~/root/rootReducer';
 import './PolicyStartDate.scss';
+import type { AppDispatch } from '~/root/store';
+import { useCallback, useEffect, useState } from 'react';
+import getPolicyStartDateRules from './getPolicyStartDateRules';
 
 const StyledMessageDiv = styled.div`
   display: flex;
@@ -20,30 +20,44 @@ const StyledMessageDiv = styled.div`
   color: ${({ theme }) => theme.color.error500Default};
 `;
 
-interface StateProps {
-  sharedState: QuoteSharedState;
-  onChange?: (model: string, value: string) => void;
-  clearPolicyStartDate?: (model: string) => void;
-}
-
-const mapStateToProps = (state: ApplicationState): StateProps => {
-  return {
-    sharedState: selectors.getQuoteSharedState(state)
-  };
-};
-
 export interface PolicyStartDateProps
-  extends Partial<ReturnType<typeof mapDispatchToProps>>,
-    Partial<ReturnType<typeof mapStateToProps>>,
-    InjectedTranslateProps {
+  extends
+  InjectedTranslateProps {
   noTick?: boolean;
   overrideTranslationDescriptionKey?: string;
   onSelect?: () => void;
 }
 
-const mapDispatchToProps = (dispatch: Dispatch) => ({
-  onChange: (model: string, value: string) => {
-    dispatch(formActions.change(model, value));
+
+const PolicyStartDateComponent = ({
+  noTick,
+  overrideTranslationDescriptionKey,
+  t,
+  onSelect,
+}: PolicyStartDateProps) => {
+
+  const sharedState = useSelector(selectors.getQuoteSharedState);
+  const dispatch = useDispatch<AppDispatch>();
+  const [startDateExpiredMsg, setStartDateExpiredMsg] = useState('');
+
+  const model = `${modelPath}.policyStartDate`;
+  const { date, minDate, maxDate, isExpired, isBeyondMaxDate } = getPolicyStartDateRules(sharedState.policyStartDate);
+
+  const clearDate = useCallback(() => {
+    dispatch(formActions.change(model, ''));
+  }, [dispatch, model]);
+
+  useEffect(() => {
+    if (isExpired || isBeyondMaxDate) {
+      clearDate();
+    }
+    if (isExpired) {
+      setStartDateExpiredMsg(t('quote:policyStartDate.errors.startDateExpired'));
+    }
+  }, [isExpired, isBeyondMaxDate, clearDate]);
+
+  const handleChange = (dateValue: Date) => {
+    dispatch(formActions.change(model, dateValue.toISOString()));
     dispatch(commonActions.eqcWindow(null));
     dispatch(formActions.change(`${modelPath}.payment.paymentPlan`, 'annual'));
     dispatch(formActions.reset(`${modelPath}.payment.paymentType`));
@@ -55,41 +69,13 @@ const mapDispatchToProps = (dispatch: Dispatch) => ({
     dispatch(formActions.reset(`${modelPath}.payment.paymentStartDate`));
     dispatch(formActions.reset(`${modelPath}.payment.installments`));
     raiseFieldGAEvent('last_field_interacted', 'date', 'policyStartDatePicker');
-  },
-  clearPolicyStartDate: (model: string) => {
-    dispatch(formActions.change(model, ''));
-  }
-});
+  };
 
-const PolicyStartDateComponent = ({
-  sharedState,
-  noTick,
-  overrideTranslationDescriptionKey,
-  t,
-  onSelect,
-  onChange,
-  clearPolicyStartDate
-}: PolicyStartDateProps) => {
-  const model = `${modelPath}.policyStartDate`;
-  const minDate = moment().startOf('day');
-
-  const maxDate = moment().startOf('day').add(49, 'days');
-  const [startDateExpiredMsg, setStartDateExpiredMsg] = React.useState(null);
-  const date = sharedState.policyStartDate ? moment(sharedState.policyStartDate).toDate() : null;
-
-  React.useEffect(() => {
-    if (date) {
-      const momentDate = moment(date);
-      const today = moment().startOf('day');
-      if (momentDate.isBefore(today)) {
-        setStartDateExpiredMsg(t('quote:policyStartDate.errors.startDateExpired'));
-        clearPolicyStartDate(model);
-      }
-      if (momentDate.isAfter(maxDate)) {
-        clearPolicyStartDate(model);
-      }
-    }
-  }, [date?.toString()]);
+  const handleSelect = (dateValue: Date) => {
+    handleChange(dateValue);
+    setStartDateExpiredMsg('');
+    onSelect?.();
+  };
 
   return (
     <>
@@ -103,16 +89,10 @@ const PolicyStartDateComponent = ({
         <DatePicker
           id="policyStartDatePicker"
           value={date}
-          minDate={minDate.toDate()}
-          maxDate={maxDate.toDate()}
-          onSelect={(dateStr: Date) => {
-            onChange(model, dateStr.toISOString());
-            setStartDateExpiredMsg('');
-            onSelect?.();
-          }}
-          onTyping={() => {
-            clearPolicyStartDate(model);
-          }}
+          minDate={minDate}
+          maxDate={maxDate}
+          onSelect={handleSelect}
+          onTyping={clearDate}
         />
         {setStartDateExpiredMsg && <StyledMessageDiv>{startDateExpiredMsg}</StyledMessageDiv>}
       </Question>
@@ -120,7 +100,4 @@ const PolicyStartDateComponent = ({
   );
 };
 
-export const PolicyStartDate = connect(
-  mapStateToProps,
-  mapDispatchToProps
-)(translate(['base', 'quote'])(PolicyStartDateComponent));
+export const PolicyStartDate = translate(['base', 'quote'])(PolicyStartDateComponent);
