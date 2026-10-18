@@ -17,7 +17,7 @@ interface MembershipValidationProps {
 }
 
 const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, onValidate }: MembershipValidationProps) => {
-  const { control } = useForm<MembershipValidationForm>({
+  const { control, watch } = useForm<MembershipValidationForm>({
     defaultValues: {
       membershipNumber: ''
     },
@@ -25,11 +25,28 @@ const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, on
 
   const { data, error, loading, refetch } = useValidateMembership(onValidate);
 
-  const [isVerifyCalled, setIsVerifyCalled] = useState(false);
+  const [lastVerifiedValue, setLastVerifiedValue] = useState<string | null>(null);
+  const currentValue = watch('membershipNumber');
 
-  const buttonText = data?.valid ? 'Verified' : 'Verify';
+  const hasChangedSinceLastVerify = lastVerifiedValue === null || currentValue.trim() !== lastVerifiedValue;
+  const isVerified = lastVerifiedValue !== null && !hasChangedSinceLastVerify;
+
   console.log(data, error, loading);
-  const supportingText = !isVerifyCalled ? helperText : '';
+  const supportingText = hasChangedSinceLastVerify ? helperText : '';
+  const errorText = isVerified && (data && data.valid === false ? data.message : error?.message);
+  console.log(errorText);
+
+  const buttonText = data?.valid && isVerified ? 'Verified' : 'Verify';
+  const buttonEnabled = currentValue.trim().length > 0 && !loading && hasChangedSinceLastVerify;
+
+  const handleValidate = async () => {
+    const valueToVerify = currentValue.trim();
+    if (!valueToVerify) return;
+    await refetch(agencyCode, currentValue);
+
+    setLastVerifiedValue(valueToVerify);
+  };
+
   return (
     <VerticalFlexbox>
       <Typography variant="title" color="primary" bold element="h3">
@@ -45,31 +62,15 @@ const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, on
             value={value}
             onBlur={onBlur}
             onChange={onChange}
-            onValidate={async () => { setIsVerifyCalled(true); await refetch(agencyCode, value); }}
+            onValidate={handleValidate}
             buttonText={buttonText}
+            buttonEnabled={buttonEnabled}
+            inputEnabled={!(data?.valid)}
           />
         )}
       />
     </VerticalFlexbox>
   );
-  // return (
-  //   <Controller
-  //     name='membershipNumber'
-  //     control={control}
-  //     render={({ field: { onBlur, onChange, value } }) => (
-  //       <ValidateInputPanel
-  //         buttonText={buttonText}
-  //         title={title}
-  //         label={label}
-  //         supportingText={helperText}
-  //         value={value}
-  //         onBlur={onBlur}
-  //         onChange={onChange}
-  //         onValidate={async () => await refetch(agencyCode, value)}
-  //       />
-  //     )}
-  //   />
-  // );
 };
 
 export default MembershipValidation;
