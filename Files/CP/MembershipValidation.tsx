@@ -5,18 +5,19 @@ import useValidateMembership from "./useValidateMembership";
 import { VerticalFlexbox } from "./MembershipValidation.styled";
 import { Typography } from "@tower/tui";
 import ValidateInputField from "./ValidateInputField";
+import WelcomeBack from "../../components/dumb/WelcomeBack/WelcomeBack";
 
 interface MembershipValidationForm {
   membershipNumber: string;
 }
 
 interface MembershipValidationProps {
-  id: MembershipId;
+  copy: MembershipId;
   agencyCode: string;
   onValidate: (success: boolean) => void;
 }
 
-const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, onValidate }: MembershipValidationProps) => {
+const MembershipValidation = ({ copy: { title, helperText, label }, agencyCode, onValidate }: MembershipValidationProps) => {
   const { control, watch } = useForm<MembershipValidationForm>({
     defaultValues: {
       membershipNumber: ''
@@ -31,7 +32,6 @@ const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, on
   const hasChangedSinceLastVerify = lastVerifiedValue === null || currentValue.trim() !== lastVerifiedValue;
   const isVerified = lastVerifiedValue !== null && !hasChangedSinceLastVerify;
 
-  console.log(data, error, loading);
   const supportingText = hasChangedSinceLastVerify ? helperText : '';
   const errorText = isVerified && (data && data.valid === false ? data.message : error?.message);
   console.log(errorText);
@@ -49,7 +49,7 @@ const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, on
 
   return (
     <VerticalFlexbox>
-      <Typography variant="title" color="primary" bold element="h3">
+      <Typography variant="title" color="primary" bold >
         {title}
       </Typography>
       <Controller
@@ -69,6 +69,7 @@ const MembershipValidation = ({ id: { title, helperText, label }, agencyCode, on
           />
         )}
       />
+      {data?.valid && <WelcomeBack title={title} description={helperText} />}
     </VerticalFlexbox>
   );
 };
