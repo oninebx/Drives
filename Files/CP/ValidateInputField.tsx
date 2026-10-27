@@ -17,9 +17,9 @@ interface ValidateInputFieldProps extends InputHTMLAttributes<HTMLInputElement> 
   errorText?: string;
 }
 
-const Label = styled(Input.Label)`
+const ValidateLabel = styled(Input.Label)<{ tint?: string }>`
   &&&& {
-    color: ${({ theme }) => theme.color.neutral900Default};
+    color: ${({ theme, tint }) => tint || theme.color.neutral900Default};
   }
 `;
 
@@ -50,20 +50,22 @@ const ValidateInputField = forwardRef<HTMLInputElement, ValidateInputFieldProps>
       onValidate?.();
     }
   };
+  const helperText = errorText || supportingText;
+  const tint = errorText ? 'error500Default' : undefined;
   return (
     <Input.Root
       onChange={onChange}
       value={value}
-      tint={errorText ? 'error500Default': undefined}
+      tint={tint}
     >
-      <Label variant='small'>{label}
+      <ValidateLabel variant='small' tint={tint}>{label}
         <FieldFlexbox>
           <Input.Field ref={ref}  {...rest} readOnly={!inputEnabled} onKeyDown={handleKeyDown} />
           <ValidateButton variant="secondary" disabled={!enabled} onClick={onValidate} >{icon}{buttonText}</ValidateButton>
         </FieldFlexbox>
-      </Label>
+      </ValidateLabel>
       <InputContainer>
-        {supportingText && <Input.SupportingText>{supportingText}</Input.SupportingText>}
+        {helperText && <Input.SupportingText>{helperText}</Input.SupportingText>}
       </InputContainer>
 
     </Input.Root>
