@@ -4,21 +4,21 @@ import useValidateMembership from "./useValidateMembership";
 import { VerticalFlexbox } from "./MembershipValidation.styled";
 import { Typography } from "@tower/tui";
 import ValidateInputField from "./ValidateInputField";
-import WelcomeBack from "../../components/dumb/WelcomeBack/WelcomeBack";
-import type { WithTranslation } from "react-i18next";
+import Notice from "~/feature/quote/shared/components/dumb/NoticePanel/NoticePanel";
 import { VerifiedUserIcon } from "@tower/tui/icons"
 import { useAppSelector } from "~/root/store";
 import { getQuoteSharedFormState } from "../../state/selectors";
 import type { FieldState } from "react-redux-form";
+import { useTranslation } from "react-i18next";
 
 interface MembershipValidationProps {
   copy: MembershipId;
   agencyCode: string;
   onValidate: (success: boolean) => void;
-  t: WithTranslation['t'];
 }
 
-const MembershipValidation = ({ copy: { title, helperText, label }, agencyCode, onValidate, t }: MembershipValidationProps) => {
+const MembershipValidation = ({ copy: { title, helperText, label }, agencyCode, onValidate}: MembershipValidationProps) => {
+  const {t} = useTranslation();
   const sharedFormState = useAppSelector(getQuoteSharedFormState);
   const membershipId = sharedFormState.membershipId as FieldState;
   const currentValue: string = membershipId?.value || '';
@@ -28,8 +28,9 @@ const MembershipValidation = ({ copy: { title, helperText, label }, agencyCode, 
     setMembershipNumber(event.target.value);
   };
 
-  const { data, loading, refetch } = useValidateMembership(onValidate);
+  const { data, loading, error, refetch } = useValidateMembership(onValidate);
   const [lastVerifiedValue, setLastVerifiedValue] = useState<string | null>(null);
+  const errorText = error ? error.message : data?.valid === false ? data?.message : undefined;
   
   const hasChangedSinceLastVerify = lastVerifiedValue === null || membershipNumber.trim() !== lastVerifiedValue;
   const isVerified = lastVerifiedValue !== null && !hasChangedSinceLastVerify;
@@ -61,9 +62,10 @@ const MembershipValidation = ({ copy: { title, helperText, label }, agencyCode, 
         buttonText={buttonText}
         buttonEnabled={buttonEnabled}
         inputEnabled={inputEnabled}
-        icon={iconVisible ? <VerifiedUserIcon width={18} height={18} /> : undefined}
+        icon={iconVisible ? <VerifiedUserIcon width={18} height={18} aria-hidden="true" /> : undefined}
+        errorText={errorText}
       />
-      {data?.valid && <WelcomeBack title={t('quote:membershipValidation.welcomeBackTitle')} description={t('quote:membershipValidation.welcomeBackDescription')} />}
+      {data?.valid && <Notice title={t('quote:membershipValidation.welcomeBackTitle')} description={t('quote:membershipValidation.welcomeBackDescription')} />}
     </VerticalFlexbox>
   );
 };

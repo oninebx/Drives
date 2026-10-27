@@ -13,10 +13,14 @@ interface ValidateInputFieldProps extends InputHTMLAttributes<HTMLInputElement> 
   buttonText: string;
   buttonEnabled: boolean;
   inputEnabled: boolean;
+  icon?: React.ReactNode;
+  errorText?: string;
 }
 
 const Label = styled(Input.Label)`
-  color: ${({ theme }) => theme.color.neutral900Default};
+  &&&& {
+    color: ${({ theme }) => theme.color.neutral900Default};
+  }
 `;
 
 const hasValidValue = (value: string | number | readonly string[] | undefined): boolean => {
@@ -36,17 +40,26 @@ const ValidateInputField = forwardRef<HTMLInputElement, ValidateInputFieldProps>
   buttonText,
   buttonEnabled,
   inputEnabled,
+  icon,
+  errorText,
   ...rest }, ref) => {
   const enabled = hasValidValue(value) && buttonEnabled;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && enabled) {
+      e.preventDefault();
+      onValidate?.();
+    }
+  };
   return (
     <Input.Root
       onChange={onChange}
       value={value}
+      tint={errorText ? 'error500Default': undefined}
     >
       <Label variant='small'>{label}
         <FieldFlexbox>
-          <Input.Field ref={ref}  {...rest} disabled={!inputEnabled} />
-          <ValidateButton variant="secondary" disabled={!enabled} onClick={onValidate}>{buttonText}</ValidateButton>
+          <Input.Field ref={ref}  {...rest} readOnly={!inputEnabled} onKeyDown={handleKeyDown} />
+          <ValidateButton variant="secondary" disabled={!enabled} onClick={onValidate} >{icon}{buttonText}</ValidateButton>
         </FieldFlexbox>
       </Label>
       <InputContainer>
