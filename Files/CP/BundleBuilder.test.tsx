@@ -1,9 +1,9 @@
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import * as React from 'react';
 import { act } from 'react-dom/test-utils';
 import { useLocation } from 'react-router';
-import { initialApplicationState } from '~/common/__mocks__/data';
+import { initialApplicationState } from '~/common/__mocks__/data/initialApplicationState';
 import { getDefaultCommonState } from '~/common/state';
 import type { GetActiveCampaignsResponse } from '~/common/state/autorest/Campaigns/src';
 import type { GetAgencyCodeResponse } from '~/common/state/autorest/Partner/src';
@@ -14,6 +14,10 @@ import { getDefaultQuoteSharedState } from '~/feature/quote/shared/state';
 import { BundleBuilderLoginType } from '~/feature/quote/state';
 import type { ApplicationState } from '~/root/rootReducer';
 import { BundleBuilderContainer } from './BundleBuilder';
+
+jest.mock('~/feature/quote/shared/components/dumb/PromoBanner/promoImages', () => ({
+  promoImages: (path: string): string => path
+}));
 
 jest.mock('~/common/state/selectors.ts', () => {
   return {
@@ -826,7 +830,8 @@ describe('BundleBuilder', () => {
           showBundleBuilderBanner: true
         },
         'base:config': {
-          CampaignsAllowed: true
+          CampaignsAllowed: true,
+          campaignBannerRedesign: true
         },
         'promo:promoCodeCampaign_save100': 'SAVE100',
         'promo:campaignBanner_save100': {
@@ -858,4 +863,223 @@ describe('BundleBuilder', () => {
     expect(screen.getByText('15% off home cover')).toBeInTheDocument();
     expect(screen.getByText('Free roadside assistance')).toBeInTheDocument();
   });
+
+  it('does not render the default redesigned banner while the active campaign is loading', async () => {
+    (useLocation as jest.Mock).mockReturnValue({
+      search: '?pt=house-contents'
+    });
+
+    let resolveActiveCampaign: () => void;
+
+    jest
+      .spyOn(campaignsService, 'getActiveCampaigns')
+      .mockImplementationOnce((_XBrandId, { onResponse }): Promise<GetActiveCampaignsResponse> => {
+        return new Promise((resolve) => {
+          resolveActiveCampaign = () => {
+            onResponse(
+              {
+                status: 200,
+                bodyAsText: 'SAVE100',
+                request: undefined,
+                headers: undefined
+              },
+              null
+            );
+
+            resolve({ body: 'SAVE100' });
+          };
+        });
+      });
+
+    renderComponent(<BundleBuilderContainer />, {
+      initialState: {
+        ...initialApplicationState,
+        common: {
+          ...initialApplicationState.common,
+          agency: {
+            ...initialApplicationState.common.agency,
+            promotionVisibility: {
+              campaigns: true
+            }
+          },
+          customer: {
+            ...initialApplicationState.common.customer,
+            promotionVisibility: {
+              campaigns: true
+            }
+          }
+        }
+      },
+      translationData: {
+        'quote:config': {
+          showBundleBuilderBanner: true
+        },
+        'base:config': {
+          CampaignsAllowed: true,
+          campaignBannerRedesign: true
+        },
+        'promo:promoCodeCampaign_save100': 'SAVE100',
+        'promo:campaignBanner_default': {
+          header: 'Default Banner Should Wait',
+          description: 'Default banner description',
+          image: {
+            alt: '',
+            lg: './default-lg.jpg'
+          }
+        },
+        'promo:campaignBanner_save100': {
+          header: 'Campaign Banner After Load',
+          description: 'Campaign banner description',
+          image: {
+            alt: '',
+            lg: './campaign-lg.jpg'
+          }
+        }
+      }
+    });
+
+    expect(screen.queryByText('Default Banner Should Wait')).not.toBeInTheDocument();
+    expect(screen.queryByText('Campaign Banner After Load')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveActiveCampaign();
+    });
+
+    expect(await screen.findByText('Campaign Banner After Load')).toBeInTheDocument();
+    expect(screen.queryByText('Default Banner Should Wait')).not.toBeInTheDocument();
+  });
+
+  it('should render the membership validation component when membershipId is enabled', async () => {
+
+    // Arrange
+    (useLocation as jest.Mock).mockReturnValue({
+      search: '?pt=house-contents'
+    });
+    const membershipIdFeature = {
+      membershipId: {
+        enabled: true,
+        title: 'test title',
+        label: 'test label',
+        helperText: 'test helper'
+      }
+    };
+
+    // Act
+    renderComponent(<BundleBuilderContainer />, {
+      initialState: {
+        ...initialApplicationState,
+        common: {
+          ...initialApplicationState.common,
+          agency: {
+            features: {
+              membershipId: membershipIdFeature.membershipId
+            }
+          }
+        }
+      }
+    });
+
+    // Assert
+    expect(await screen.findByText('test title')).toBeInTheDocument();
+    expect(screen.getByText('test label')).toBeInTheDocument();
+    expect(screen.getByText('test helper')).toBeInTheDocument();
+  });
+
+  describe('membership validation scenarios', () => {
+    const membershipIdFeature = {
+      membershipId: {
+        enabled: true,
+        title: 'Membership validation',
+        label: 'Membership number',
+        helperText: 'Enter your membership number'
+      }
+    };
+
+    it('should block Begin Quote until membership validation succeeds when preventUnauthenticated is enabled', async () => {
+      (useLocation as jest.Mock).mockReturnValue({
+        search: '?pt=house'
+      });
+
+      jest.spyOn(partnerService, 'validateMembership').mockResolvedValue({ valid: true } as never);
+
+      renderComponent(<BundleBuilderContainer />, {
+        initialState: {
+          ...initialApplicationState,
+          common: {
+            ...initialApplicationState.common,
+            agency: {
+              ...initialApplicationState.common.agency,
+              features: {
+                membershipId: membershipIdFeature.membershipId
+              }
+            }
+          }
+        },
+        translationData: {
+          'quote:config': {
+            preventUnauthenticated: true
+          }
+        }
+      });
+
+      expect(screen.queryByRole('button', { name: /button\.beginQuote/i })).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Membership number'), { target: { value: 'ABC123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /button\.beginQuote/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should hide existing customer prompt until membership validation succeeds', async () => {
+      (useLocation as jest.Mock).mockReturnValue({
+        search: '?pt=house'
+      });
+
+      jest.spyOn(partnerService, 'validateMembership').mockResolvedValue({ valid: true } as never);
+
+
+      renderComponent(<BundleBuilderContainer />, {
+        initialState: {
+          ...initialApplicationState,
+          common: {
+            ...initialApplicationState.common,
+            agency: {
+              ...initialApplicationState.common.agency,
+              features: {
+                membershipId: membershipIdFeature.membershipId
+              }
+            }
+          },
+          flags: {
+            'bundle-builder-login': true
+          },
+          quote: {
+            ...initialApplicationState.quote,
+            bundleBuilderLogin: BundleBuilderLoginType.LOGIN,
+            houses: [{
+              policyNumber: 'ABC123'
+            }]
+          }
+        },
+        translationData: {
+          'quote:existingCustomer': {
+            yesButton: 'Yes'
+          }
+        }
+      });
+
+      expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByLabelText('Membership number'), { target: { value: 'ABC123' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Verify' }));
+
+      await waitFor(() => {
+        screen.debug();
+        expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument();
+      });
+    });
+  });
+
 });
