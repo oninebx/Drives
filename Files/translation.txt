@@ -1,0 +1,24 @@
+Here is my analysis of the potential variations in COPY:
+
+1. **Definitely different across agencies:** `SuccessMessage`
+2. **Potentially different in the future, depending on the agency:** `Title`, `Label`, `HelperText`, `ValidationErrorMessage`
+3. **Potentially different in the future, but only depending on Tower:** `SystemErrorMessage`
+4. **Confirmed to be the same for now, but could also be managed on the API side:** `SuccessMessageTitle`
+
+From an implementation perspective, we should follow the Open-Closed Principle: open for extension, but closed for modification.
+
+For example, `CostcoFeatures` already demonstrates this approach by overriding `MembershipId` to customise the associated COPY.
+
+However, I would suggest including `SuccessMessageTitle as well, since it is also part of the COPY.
+
+**Regarding message keys**, we need to take into account the considerations Ashleigh raised previously regarding xxx.
+
+At the UI level, what we display to users should be consistent and easy to understand.
+
+However, the `message` returned by the Validation API should reflect the actual validation result, making it easier to troubleshoot. It would also give us more flexibility to support different membership ID formats across agencies in the future, such as validation rules around alphabetic characters, case sensitivity, or specific prefixes. In other words, the API message should describe the actual validation failure.
+
+For this reason, I have some reservations about introducing `messageKey`.
+
+The additional mapping logic itself is not the main concern, although it does introduce some extra cognitive overhead. If the keys simply map to error messages that are already part of the COPY, I don't see much value in introducing another layer of abstraction.
+
+What we really need, however, is the actual validation error information. That is important for troubleshooting and for supporting potentially different validation rules across agencies.
