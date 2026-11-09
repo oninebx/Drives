@@ -119,26 +119,17 @@ describe('EditPolicyHolder', () => {
   });
 
   it('should show textarea when drop down value is changed', async () => {
-    const state = {
-      ...initialState,
-      myForms: {
-        change: {
-          policyHolders: {
-            editPolicyHolder: {
-              reasonForChange: 'Other, please specify'
-            }
-          }
-        }
-      }
+    const props = {
+      ...initialProps,
     };
-    renderComponent(<EditPolicyHolders {...initialProps} />, { initialState: state, translationData });
+    renderComponent(<EditPolicyHolders {...props} />, { initialState, translationData });
     const nextButton = screen.getByRole('button', { name: /next/i });
     expect(nextButton).toBeDisabled();
     const dropDownInput = screen.getByRole('button', { name: /Please Select/i });
     await userEvent.click(dropDownInput);
 
     screen.debug(undefined, Infinity);
-    const option = await screen.findByLabelText(/Other, please specify/i);
+    const option = await screen.findByText(/Other, please specify/i);
     await fireEvent.click(option);
     const placeHolder = translationData['portal:editCurrentPolicyHolder'].descriptionbox.placeHolder;
     expect(await screen.findByPlaceholderText(placeHolder)).toBeInTheDocument();
