@@ -62,3 +62,35 @@ Establish a loosely coupled Authentication module and replace the existing Auth0
 - Implementation of the Legacy authentication strategy.
 - Changes to the existing Legacy authentication flow.
 - Authorization and permission management beyond the existing OIDC requirements.
+
+
+
+
+
+## Objective
+
+Implement the Auth0 Legacy authentication strategy using the Authentication module and strategy abstraction established in the previous ticket.
+
+The objective is to support the existing username and password authentication flow through the new strategy-based architecture, while maintaining separation from OIDC-specific implementation and Core Functionalities.
+
+## Scope
+
+1. Implement the Legacy authentication strategy using the existing authentication strategy abstraction.
+
+2. Integrate the existing Auth0 Legacy (username/password) authentication flow into the new strategy.
+
+3. Ensure the Legacy strategy remains independent of the OIDC strategy and its implementation details.
+
+4. Ensure the Legacy strategy can be selected and used as an alternative to the OIDC strategy, with only one authentication strategy active at a time.
+
+5. Preserve the existing Legacy authentication behaviour and ensure no impact on Core Functionalities.
+
+6. Remove obsolete Legacy authentication code following the migration.
+
+## Acceptance Criteria
+
+- Auth0 Legacy authentication is implemented through the new strategy abstraction.
+- Username and password authentication works as expected.
+- Legacy and OIDC strategies remain independent and mutually exclusive.
+- Existing Legacy authentication flows and all Core Functionalities continue to work as expected.
+- Obsolete Legacy authentication implementation code is removed.
