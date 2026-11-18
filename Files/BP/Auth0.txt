@@ -1,0 +1,54 @@
+## Objective
+
+Build an independent, loosely coupled Authentication module to separate authentication concerns from the application's core functionalities, and implement the Auth0 OIDC authentication strategy within this module.
+
+This task will replace the existing OIDC implementation with the new strategy-based approach, establishing a consistent authentication interface for application components while keeping Auth0-specific implementation details encapsulated within the OIDC strategy.
+
+## Scope
+
+### 1. Authentication Module
+
+- Establish an independent Authentication module with clear boundaries and responsibilities.
+- Define a common authentication interface to be consumed by application components (e.g. through `useAuth`).
+- Encapsulate authentication state and lifecycle management within the module.
+- Ensure core application components do not directly depend on Auth0-specific implementation details.
+- Establish an extensible structure to support additional authentication strategies.
+
+### 2. Auth0 OIDC Strategy
+
+- Implement the Auth0 OIDC authentication flow as an independent strategy.
+- Encapsulate Auth0-specific operations, including login, callback handling, token management and logout.
+- Integrate the OIDC strategy with the common authentication interface.
+- Preserve the existing OIDC authentication behaviour and required application integration flows.
+- Replace the existing OIDC implementation with the new strategy.
+
+### 3. Application Integration
+
+- Integrate the new Authentication module into the existing application.
+- Migrate existing authentication consumers to the common interface.
+- Ensure existing post-authentication processes, including user matching and customer loading, continue to work as expected.
+- Remove obsolete OIDC implementation code and unnecessary Auth0 dependencies from application-level components.
+
+### 4. Testing and Validation
+
+- Add or update automated tests covering the Authentication module and OIDC strategy.
+- Validate login, callback, authentication state transitions, token handling and logout.
+- Verify that existing application flows remain functional after replacing the OIDC implementation.
+- Ensure authentication errors and loading states are handled correctly.
+
+## Acceptance Criteria
+
+- An independent Authentication module is established with clearly defined responsibilities.
+- Authentication functionality is exposed through a common interface.
+- Auth0 OIDC is implemented as an independent authentication strategy.
+- Auth0-specific implementation details are isolated from core application functionality.
+- The existing OIDC implementation is replaced by the new strategy.
+- Existing post-authentication processes and application functionality continue to work as expected.
+- Automated tests cover the key authentication scenarios.
+- No regression is introduced to the existing OIDC authentication flow.
+
+## Out of Scope
+
+- Implementation of the Legacy authentication strategy.
+- Changes to the existing Legacy authentication flow.
+- Authorization and permission management beyond the existing OIDC requirements.
