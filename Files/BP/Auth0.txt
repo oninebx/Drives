@@ -6,21 +6,31 @@ This task will replace the existing OIDC implementation with the new strategy-ba
 
 ## Scope
 
-### 1. Authentication Module
+## Objective
 
-- Establish an independent Authentication module with clear boundaries and responsibilities.
-- Define a common authentication interface to be consumed by application components (e.g. through `useAuth`).
-- Encapsulate authentication state and lifecycle management within the module.
-- Ensure core application components do not directly depend on Auth0-specific implementation details.
-- Establish an extensible structure to support additional authentication strategies.
+Establish a loosely coupled Authentication module and replace the existing Auth0 OIDC implementation with a strategy-based approach, separating authentication concerns from core application functionalities.
 
-### 2. Auth0 OIDC Strategy
+## Scope
 
-- Implement the Auth0 OIDC authentication flow as an independent strategy.
-- Encapsulate Auth0-specific operations, including login, callback handling, token management and logout.
-- Integrate the OIDC strategy with the common authentication interface.
-- Preserve the existing OIDC authentication behaviour and required application integration flows.
-- Replace the existing OIDC implementation with the new strategy.
+1. Define a common set of authentication strategy methods and establish how strategies are selected, managed and consumed by the application.
+
+2. Integrate Auth0 using the strategy abstraction and remove existing dependencies between the Auth0 implementation and core application functionalities.
+
+3. Implement the OIDC strategy using the new abstraction and replace the existing OIDC implementation.
+
+4. Decouple the OIDC strategy from Brand-specific implementations, allowing new Brands to be supported through extension, with TWR excluded from this scope.
+
+5. Ensure that changes do not impact any existing Core Functionality.
+
+6. Remove obsolete Auth0 OIDC-related code following the refactoring.
+
+## Acceptance Criteria
+
+- The new Authentication module and strategy abstraction are in place.
+- Auth0 OIDC is fully integrated through the new OIDC strategy.
+- OIDC implementation is decoupled from Core Functionalities and Brand-specific implementations (excluding TWR).
+- Existing OIDC authentication flows and all Core Functionalities continue to work as expected.
+- Obsolete Auth0 OIDC implementation code is removed.
 
 ### 3. Application Integration
 
