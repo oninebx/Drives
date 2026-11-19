@@ -1,96 +1,27 @@
 ## Objective
 
-Build an independent, loosely coupled Authentication module to separate authentication concerns from the application's core functionalities, and implement the Auth0 OIDC authentication strategy within this module.
+Centralise Access Token storage and management within AuthContext, establishing a single source of truth for authentication-related token state across the OIDC and Legacy authentication strategies.
 
-This task will replace the existing OIDC implementation with the new strategy-based approach, establishing a consistent authentication interface for application components while keeping Auth0-specific implementation details encapsulated within the OIDC strategy.
-
-## Scope
-
-## Objective
-
-Establish a loosely coupled Authentication module and replace the existing Auth0 OIDC implementation with a strategy-based approach, separating authentication concerns from core application functionalities.
+The objective is to eliminate duplicated Access Token storage across Redux and localStorage, and ensure that authentication state and token management are isolated to the currently active strategy and its corresponding Auth0 Tenant.
 
 ## Scope
 
-1. Define a common set of authentication strategy methods and establish how strategies are selected, managed and consumed by the application.
-
-2. Integrate Auth0 using the strategy abstraction and remove existing dependencies between the Auth0 implementation and core application functionalities.
-
-3. Implement the OIDC strategy using the new abstraction and replace the existing OIDC implementation.
-
-4. Decouple the OIDC strategy from Brand-specific implementations, allowing new Brands to be supported through extension, with TWR excluded from this scope.
-
-5. Ensure that changes do not impact any existing Core Functionality.
-
-6. Remove obsolete Auth0 OIDC-related code following the refactoring.
+1. Centralise Access Token storage and state management within AuthContext.
+2. Establish a unified mechanism for retrieving Access Tokens through the Authentication module, applicable to both OIDC and Legacy strategies.
+3. Remove existing Access Token storage and retrieval logic from Redux and localStorage.
+4. Ensure that only the currently active authentication strategy and its corresponding Auth0 Tenant can provide a valid Access Token.
+5. Ensure that authentication state and tokens associated with the previously active strategy cannot be reused when switching between strategies.
+6. Review and refactor other Auth0-related lifecycle management logic to align with the new Authentication architecture.
+7. Ensure authentication sessions can be restored after a page refresh without relying on persistent Access Token storage.
+8. Ensure existing API integrations and Core Functionalities are not affected.
 
 ## Acceptance Criteria
 
-- The new Authentication module and strategy abstraction are in place.
-- Auth0 OIDC is fully integrated through the new OIDC strategy.
-- OIDC implementation is decoupled from Core Functionalities and Brand-specific implementations (excluding TWR).
-- Existing OIDC authentication flows and all Core Functionalities continue to work as expected.
-- Obsolete Auth0 OIDC implementation code is removed.
-
-### 3. Application Integration
-
-- Integrate the new Authentication module into the existing application.
-- Migrate existing authentication consumers to the common interface.
-- Ensure existing post-authentication processes, including user matching and customer loading, continue to work as expected.
-- Remove obsolete OIDC implementation code and unnecessary Auth0 dependencies from application-level components.
-
-### 4. Testing and Validation
-
-- Add or update automated tests covering the Authentication module and OIDC strategy.
-- Validate login, callback, authentication state transitions, token handling and logout.
-- Verify that existing application flows remain functional after replacing the OIDC implementation.
-- Ensure authentication errors and loading states are handled correctly.
-
-## Acceptance Criteria
-
-- An independent Authentication module is established with clearly defined responsibilities.
-- Authentication functionality is exposed through a common interface.
-- Auth0 OIDC is implemented as an independent authentication strategy.
-- Auth0-specific implementation details are isolated from core application functionality.
-- The existing OIDC implementation is replaced by the new strategy.
-- Existing post-authentication processes and application functionality continue to work as expected.
-- Automated tests cover the key authentication scenarios.
-- No regression is introduced to the existing OIDC authentication flow.
-
-## Out of Scope
-
-- Implementation of the Legacy authentication strategy.
-- Changes to the existing Legacy authentication flow.
-- Authorization and permission management beyond the existing OIDC requirements.
-
-
-
-
-
-## Objective
-
-Implement the Auth0 Legacy authentication strategy using the Authentication module and strategy abstraction established in the previous ticket.
-
-The objective is to support the existing username and password authentication flow through the new strategy-based architecture, while maintaining separation from OIDC-specific implementation and Core Functionalities.
-
-## Scope
-
-1. Implement the Legacy authentication strategy using the existing authentication strategy abstraction.
-
-2. Integrate the existing Auth0 Legacy (username/password) authentication flow into the new strategy.
-
-3. Ensure the Legacy strategy remains independent of the OIDC strategy and its implementation details.
-
-4. Ensure the Legacy strategy can be selected and used as an alternative to the OIDC strategy, with only one authentication strategy active at a time.
-
-5. Preserve the existing Legacy authentication behaviour and ensure no impact on Core Functionalities.
-
-6. Remove obsolete Legacy authentication code following the migration.
-
-## Acceptance Criteria
-
-- Auth0 Legacy authentication is implemented through the new strategy abstraction.
-- Username and password authentication works as expected.
-- Legacy and OIDC strategies remain independent and mutually exclusive.
-- Existing Legacy authentication flows and all Core Functionalities continue to work as expected.
-- Obsolete Legacy authentication implementation code is removed.
+- Access Token is managed centrally within AuthContext for both OIDC and Legacy strategies.
+- Application components and API integrations use the unified token retrieval mechanism.
+- Access Tokens are no longer stored in Redux or localStorage.
+- Only the active strategy can provide an Access Token associated with its configured Auth0 Tenant.
+- Switching strategies invalidates the previous strategy's local authentication state and prevents reuse of its Access Token.
+- Token renewal, session restoration and logout work correctly for both strategies.
+- Existing authentication flows and Core Functionalities are not affected.
+- Obsolete token storage and retrieval logic is removed.
